@@ -1,0 +1,4387 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>隧安哨兵上位机</title>
+
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
+<style>
+:root {
+    --bg: #101317;
+    --panel: #181d22;
+    --panel-2: #20262d;
+    --line: #303841;
+    --text: #eef2f5;
+    --muted: #9ba6af;
+    --teal: #26c6b6;
+    --green: #43d17b;
+    --amber: #f0b64a;
+    --red: #ef5b5b;
+    --blue: #4aa3ff;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    min-width: 1180px;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+}
+
+button {
+    border: 1px solid var(--line);
+    background: #262d34;
+    color: var(--text);
+    border-radius: 6px;
+    padding: 10px 12px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+button:hover {
+    border-color: var(--teal);
+}
+
+.app {
+    display: grid;
+    grid-template-columns: 224px 1fr;
+    height: 100vh;
+}
+
+.sidebar {
+    background: #15191e;
+    border-right: 1px solid var(--line);
+    padding: 18px 14px;
+}
+
+.brand {
+    padding: 10px 8px 20px;
+    border-bottom: 1px solid var(--line);
+}
+
+.brand-title {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 0;
+}
+
+.brand-subtitle {
+    margin-top: 6px;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.menu {
+    margin-top: 18px;
+    display: grid;
+    gap: 8px;
+}
+
+.menu button {
+    width: 100%;
+    height: 44px;
+    text-align: left;
+    background: transparent;
+    color: var(--muted);
+}
+
+.menu button.active {
+    background: #24302f;
+    border-color: var(--teal);
+    color: var(--text);
+}
+
+.connection {
+    position: absolute;
+    bottom: 18px;
+    width: 196px;
+    padding: 12px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: #171c21;
+}
+
+.connection-row {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8px;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.dot {
+    width: 9px;
+    height: 9px;
+    display: inline-block;
+    border-radius: 50%;
+    background: var(--amber);
+    margin-right: 6px;
+}
+
+.dot.online {
+    background: var(--green);
+}
+
+.dot.offline {
+    background: var(--red);
+}
+
+.main {
+    min-width: 0;
+    height: 100vh;
+    padding: 16px;
+    overflow-y: auto;
+}
+
+.page {
+    display: none;
+    height: calc(100vh - 32px);
+    min-height: 0;
+}
+
+.page.active {
+    display: grid;
+}
+
+.monitor-page {
+    grid-template-columns: minmax(640px, 2fr) minmax(360px, 1fr);
+    gap: 14px;
+    height: auto;
+    min-height: calc(100vh - 32px);
+}
+
+.page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 46px;
+    padding: 0 14px;
+    border-bottom: 1px solid var(--line);
+}
+
+.page-title {
+    font-weight: 700;
+}
+
+.badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.header-actions button {
+    padding: 6px 10px;
+    font-size: 12px;
+}
+
+.header-actions button.danger {
+    border-color: rgba(239, 91, 91, 0.55);
+    color: #ffdede;
+}
+
+.panel {
+    min-width: 0;
+    min-height: 0;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--panel);
+    overflow: hidden;
+}
+
+.video-panel {
+    display: grid;
+    grid-template-rows: 46px 1fr;
+}
+
+.video-frame {
+    position: relative;
+    min-height: 0;
+    background: #050607;
+}
+
+#cam {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: contain;
+}
+
+.empty-video {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    color: var(--muted);
+    background:
+        linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px),
+        linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px);
+    background-size: 32px 32px;
+}
+
+.overlay {
+    position: absolute;
+    padding: 6px 9px;
+    border: 1px solid rgba(238, 242, 245, 0.2);
+    border-radius: 6px;
+    background: rgba(12, 15, 18, 0.76);
+    color: var(--text);
+    font-size: 12px;
+}
+
+.top-left { top: 12px; left: 12px; }
+.top-right { top: 12px; right: 12px; }
+.bottom-left { bottom: 12px; left: 12px; }
+.bottom-right { bottom: 12px; right: 12px; }
+
+.right-stack {
+    display: grid;
+    grid-template-rows: minmax(220px, 1fr) auto;
+    gap: 14px;
+    min-height: 0;
+}
+
+.monitor-page .summary-panel {
+    grid-template-rows: 46px auto;
+}
+
+.monitor-page .summary-body {
+    overflow: visible;
+}
+
+.map-preview {
+    position: relative;
+    height: 100%;
+    min-height: 0;
+    background:
+        linear-gradient(90deg, rgba(38,198,182,0.13) 1px, transparent 1px),
+        linear-gradient(rgba(38,198,182,0.13) 1px, transparent 1px),
+        #14191d;
+    background-size: 38px 38px;
+}
+
+.robot-marker {
+    position: absolute;
+    left: 48%;
+    top: 44%;
+    width: 18px;
+    height: 18px;
+    border: 3px solid var(--green);
+    border-radius: 50%;
+    box-shadow: 0 0 0 6px rgba(67, 209, 123, 0.16);
+}
+
+.robot-marker::after {
+    content: "";
+    position: absolute;
+    left: 12px;
+    top: 4px;
+    width: 28px;
+    height: 2px;
+    background: var(--green);
+}
+
+.route-line {
+    position: absolute;
+    left: 22%;
+    top: 56%;
+    width: 56%;
+    border-top: 2px dashed var(--amber);
+}
+
+.status-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    padding: 12px;
+}
+
+.status-card,
+.sensor-card,
+.point-card,
+.alarm-item {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--panel-2);
+}
+
+.status-card {
+    min-height: 72px;
+    padding: 10px;
+}
+
+.card-label {
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.card-value {
+    margin-top: 8px;
+    color: var(--text);
+    font-size: 19px;
+    font-weight: 700;
+}
+
+.sensor-card.warning,
+.status-card.warning {
+    border-color: var(--amber);
+}
+
+.sensor-card.danger,
+.status-card.danger,
+.alarm-item.danger {
+    border-color: var(--red);
+}
+
+.control-panel {
+    display: grid;
+    grid-template-rows: 46px auto;
+    min-height: max-content;
+    align-self: start;
+    overflow: visible;
+}
+
+.control-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-rows: minmax(34px, auto);
+    align-content: start;
+    gap: 8px;
+    padding: 10px;
+}
+
+.control-grid > button {
+    min-height: 34px;
+    padding: 7px 8px;
+}
+
+.control-grid button.danger {
+    background: #472326;
+    border-color: var(--red);
+    color: #ffdada;
+}
+
+.control-grid button:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.control-grid button.mode-active {
+    background: #243b35;
+    border-color: var(--green);
+    color: #dfffea;
+}
+
+.manual-control-hint {
+    grid-column: 1 / -1;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.45;
+    text-align: center;
+}
+
+.manual-control-hint kbd {
+    display: inline-block;
+    min-width: 24px;
+    margin: 0 2px;
+    padding: 1px 5px;
+    border: 1px solid var(--line);
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    background: #20262c;
+    color: var(--text);
+    font-family: inherit;
+}
+
+.control-message {
+    grid-column: 1 / -1;
+    min-height: 20px;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.log-line {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.alarm-page {
+    grid-template-columns: minmax(360px, 0.9fr) minmax(620px, 1.7fr);
+    gap: 14px;
+}
+
+.map-management-page,
+.patrol-task-page {
+    grid-template-columns: minmax(620px, 1.7fr) minmax(360px, 0.9fr);
+    gap: 14px;
+}
+
+.map-side-stack {
+    display: grid;
+    grid-template-rows: minmax(250px, 0.9fr) minmax(220px, 0.75fr) minmax(270px, 1fr);
+    gap: 14px;
+    min-height: 0;
+    overflow-y: auto;
+    padding-right: 3px;
+}
+
+.patrol-side-stack {
+    display: grid;
+    grid-template-rows: minmax(220px, 1fr) auto;
+    gap: 14px;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding-right: 3px;
+}
+
+.patrol-status-summary {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 4px 10px;
+    align-items: center;
+    padding: 8px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--panel-2);
+}
+
+.patrol-status-summary span {
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.25;
+}
+
+.patrol-status-summary strong {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--text);
+    font-size: 13px;
+    text-align: right;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+#patrolControlMessage {
+    display: -webkit-box;
+    overflow: hidden;
+    line-height: 1.25;
+    white-space: normal;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+.manual-status-compact {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 3px 12px;
+    min-width: 0;
+    padding-top: 5px;
+    border-top: 1px solid var(--line);
+}
+
+.manual-status-compact span {
+    white-space: nowrap;
+}
+
+.manual-status-compact strong {
+    display: inline;
+    overflow: visible;
+    margin-left: 2px;
+    color: var(--text);
+    font-size: 12px;
+    text-align: left;
+    text-overflow: clip;
+    white-space: nowrap;
+}
+
+.placeholder-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.placeholder-actions button:disabled,
+.map-list-actions button:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.map-status-list,
+.map-list {
+    display: grid;
+    gap: 10px;
+}
+
+.map-list-item {
+    padding: 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--panel-2);
+}
+
+.map-list-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.map-list-actions button {
+    flex: 1;
+    padding: 7px 9px;
+    font-size: 12px;
+}
+
+.map-save-form,
+.zone-editor {
+    display: grid;
+    gap: 9px;
+    padding: 0 12px 12px;
+}
+
+.map-save-row,
+.zone-action-row {
+    display: flex;
+    gap: 8px;
+}
+
+.map-save-row input,
+.zone-editor input {
+    min-width: 0;
+    flex: 1;
+}
+
+.map-save-row button,
+.zone-action-row button {
+    flex: 1;
+    padding: 8px;
+    font-size: 12px;
+}
+
+.map-inline-status {
+    min-height: 20px;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.map-inline-status.success {
+    color: var(--green);
+}
+
+.map-inline-status.warning {
+    color: var(--amber);
+}
+
+.map-inline-status.error {
+    color: var(--red);
+}
+
+.map-list-item.active,
+.zone-card.active {
+    border-color: var(--teal);
+    background: #21302f;
+}
+
+.map-file-status {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.file-chip {
+    padding: 3px 6px;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    color: var(--muted);
+    font-size: 11px;
+}
+
+.file-chip.ok {
+    border-color: rgba(67, 209, 123, 0.55);
+    color: var(--green);
+}
+
+.zone-list {
+    display: grid;
+    gap: 8px;
+    padding: 0 12px 12px;
+}
+
+.zone-card {
+    padding: 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--panel-2);
+}
+
+.zone-card.disabled-zone {
+    opacity: 0.65;
+}
+
+.zone-card-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.zone-card-actions button {
+    flex: 1;
+    padding: 6px 8px;
+    font-size: 12px;
+}
+
+.map-canvas.zone-editing {
+    cursor: crosshair;
+}
+
+.map-canvas.point-picking {
+    cursor: crosshair;
+}
+
+.list-panel,
+.detail-panel,
+.map-main-panel,
+.point-panel,
+.summary-panel {
+    display: grid;
+    grid-template-rows: 46px 1fr;
+}
+
+.list-body,
+.detail-body,
+.point-body,
+.summary-body {
+    min-height: 0;
+    overflow: auto;
+    padding: 12px;
+}
+
+.summary-body {
+    padding: 0;
+}
+
+.alarm-list {
+    display: grid;
+    gap: 10px;
+}
+
+.alarm-item {
+    padding: 12px;
+    cursor: pointer;
+}
+
+.alarm-item.active {
+    border-color: var(--teal);
+    background: #21302f;
+}
+
+.alarm-top,
+.point-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 13px;
+}
+
+.alarm-type,
+.point-name {
+    font-weight: 700;
+}
+
+.alarm-meta,
+.point-meta {
+    margin-top: 8px;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.7;
+}
+
+.detail-grid {
+    display: grid;
+    gap: 12px;
+}
+
+.snapshot {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    min-height: 320px;
+    max-height: min(58vh, 520px);
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background:
+        radial-gradient(circle at 50% 50%, rgba(38,198,182,0.16), transparent 40%),
+        #11161a;
+    color: var(--muted);
+    overflow: hidden;
+    text-align: center;
+    padding: 8px;
+}
+
+.snapshot.has-image {
+    background: #080b0e;
+    padding: 0;
+}
+
+.snapshot img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+}
+
+.field-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.field {
+    padding: 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--panel-2);
+}
+
+.field span {
+    display: block;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.field strong {
+    display: block;
+    margin-top: 6px;
+    font-size: 15px;
+}
+
+.action-row {
+    display: flex;
+    gap: 10px;
+}
+
+.action-row button {
+    flex: 1;
+}
+
+.map-canvas {
+    position: relative;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    background:
+        linear-gradient(90deg, rgba(238,242,245,0.06) 1px, transparent 1px),
+        linear-gradient(rgba(238,242,245,0.06) 1px, transparent 1px),
+        #151a1f;
+    background-size: 42px 42px;
+}
+
+.ros-map-layer {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+.ros-map-grid {
+    z-index: 1;
+}
+
+.ros-map-overlay {
+    z-index: 2;
+}
+
+#mapManagementOverlay {
+    pointer-events: auto;
+}
+
+#mapPointLayer {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    pointer-events: none;
+}
+
+.tunnel {
+    position: absolute;
+    left: 8%;
+    right: 8%;
+    top: 38%;
+    height: 118px;
+    border: 2px solid #58626b;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.03);
+}
+
+.patrol-path {
+    position: absolute;
+    left: 13%;
+    right: 13%;
+    top: 50%;
+    border-top: 3px dashed var(--amber);
+}
+
+.map-point {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 3px solid var(--teal);
+    background: #101317;
+}
+
+.map-point.p1 { left: 20%; top: 48%; }
+.map-point.p2 { left: 44%; top: 48%; }
+.map-point.p3 { left: 68%; top: 48%; border-color: var(--amber); }
+
+.map-robot {
+    position: absolute;
+    left: 32%;
+    top: 46%;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 4px solid var(--green);
+    background: #101317;
+}
+
+.map-note {
+    position: absolute;
+    left: 14px;
+    bottom: 14px;
+    z-index: 4;
+    max-width: 360px;
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(12, 15, 18, 0.78);
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.map-note-line + .map-note-line {
+    margin-top: 4px;
+}
+
+.map-note strong {
+    color: var(--text);
+}
+
+.map-status-list .card-value {
+    font-size: 14px;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+}
+
+.dynamic-map-point {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border: 3px solid var(--teal);
+    border-radius: 50%;
+    background: #101317;
+    transform: translate(-50%, -50%);
+}
+
+.dynamic-map-point.danger {
+    border-color: var(--red);
+}
+
+.dynamic-map-point.sensor {
+    border-color: var(--amber);
+}
+
+.dynamic-map-point.manual {
+    border-color: var(--green);
+}
+
+.point-list {
+    display: grid;
+    gap: 10px;
+}
+
+.point-card {
+    padding: 12px;
+}
+
+.point-card.invalid-point {
+    border-color: rgba(231, 76, 60, 0.8);
+    background: rgba(231, 76, 60, 0.09);
+}
+
+.point-validation-error {
+    margin-top: 7px;
+    color: var(--red);
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.point-form {
+    display: grid;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.point-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.point-form input,
+.point-form select {
+    width: 100%;
+    min-width: 0;
+    padding: 8px 9px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: #101317;
+    color: var(--text);
+}
+
+.point-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.point-actions button {
+    flex: 1;
+}
+
+.point-card .delete-point-btn {
+    flex: 0 0 auto;
+    padding: 5px 8px;
+    font-size: 12px;
+}
+
+.sensor-list {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding: 6px 12px 12px;
+}
+
+.sensor-card {
+    min-height: 52px;
+    padding: 10px;
+}
+
+.sensor-card .card-value {
+    font-size: 17px;
+}
+
+.small-text {
+    color: var(--muted);
+    font-size: 12px;
+}
+
+@media (max-width: 1280px) {
+    body {
+        min-width: 1024px;
+    }
+
+    .monitor-page {
+        grid-template-columns: minmax(580px, 1.6fr) minmax(330px, 1fr);
+    }
+}
+</style>
+</head>
+
+<body>
+<div class="app">
+    <aside class="sidebar">
+        <div class="brand">
+            <div class="brand-title">隧安哨兵</div>
+            <div class="brand-subtitle">Tunnel Patrol Console</div>
+        </div>
+
+        <nav class="menu">
+            <button class="active" data-page="monitor">实时监控</button>
+            <button data-page="alarms">报警日志</button>
+            <button data-page="map-management">地图管理</button>
+            <button data-page="patrol-task">巡检任务</button>
+        </nav>
+
+        <div class="connection">
+            <div><span id="socketDot" class="dot"></span><span id="socketState">连接中</span></div>
+            <div class="connection-row"><span>ROS 桥接</span><span id="bridgeState">等待</span></div>
+            <div class="connection-row"><span>页面时间</span><span id="clockText">--:--:--</span></div>
+        </div>
+    </aside>
+
+    <main class="main">
+        <section id="page-monitor" class="page monitor-page active">
+            <div class="panel video-panel">
+                <div class="page-header">
+                    <div class="page-title">实时视频</div>
+                    <div class="badge"><span class="dot online"></span><span>/camera/image</span></div>
+                </div>
+                <div class="video-frame">
+                    <img id="cam" alt="">
+                    <div id="emptyVideo" class="empty-video">等待视频流</div>
+                    <div class="overlay top-left">AI 检测画面</div>
+                    <div class="overlay top-right" id="fpsBox">FPS: 0.0</div>
+                    <div class="overlay bottom-left" id="targetBox">目标数: --</div>
+                    <div class="overlay bottom-right" id="videoTime">--</div>
+                </div>
+            </div>
+
+            <div class="right-stack">
+                <div class="panel">
+                    <div class="page-header">
+                        <div class="page-title">地图 / 小车位置</div>
+                        <div class="badge">静态预览</div>
+                    </div>
+                    <div class="map-preview">
+                        <div class="route-line"></div>
+                        <div class="robot-marker"></div>
+                    </div>
+                </div>
+
+                <div class="panel summary-panel">
+                    <div class="page-header">
+                        <div class="page-title">状态与传感器</div>
+                        <div class="badge" id="patrolBadge">未巡检</div>
+                    </div>
+                    <div class="summary-body">
+                        <div class="status-grid">
+                            <div class="status-card">
+                                <div class="card-label">运行时间</div>
+                                <div class="card-value" id="uptimeText">00:00:00</div>
+                            </div>
+                            <div class="status-card">
+                                <div class="card-label">巡检状态</div>
+                                <div class="card-value" id="patrolState">未巡检</div>
+                            </div>
+                            <div class="status-card">
+                                <div class="card-label">环境等级</div>
+                                <div class="card-value" id="sensorLevel">正常</div>
+                            </div>
+                            <div class="status-card">
+                                <div class="card-label">最近报警</div>
+                                <div class="card-value" id="latestAlarm">无</div>
+                            </div>
+                        </div>
+                        <div class="sensor-list">
+                            <div class="sensor-card" data-keys="temp hum"><div class="card-label">温湿度</div><div class="card-value"><span id="temp">0.0</span> ℃ / <span id="hum">0.0</span> %</div></div>
+                            <div class="sensor-card" data-keys="pm25 pm10"><div class="card-label">空气质量</div><div class="card-value">PM2.5 <span id="pm25">0.0</span> / PM10 <span id="pm10">0.0</span></div></div>
+                            <div class="sensor-card" data-keys="mq2 co"><div class="card-label">气体安全</div><div class="card-value">MQ2 <span id="mq2">0.0</span> / CO <span id="co">0.00</span></div></div>
+                            <div class="sensor-card" data-key="hc"><div class="card-label">测距状态</div><div class="card-value"><span id="hc">0.0</span> cm</div></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="page-alarms" class="page alarm-page">
+            <div class="panel list-panel">
+                <div class="page-header">
+                    <div class="page-title">报警列表</div>
+                    <div class="header-actions">
+                        <div class="badge" id="alarmCount">0 条</div>
+                        <button class="danger" id="clearAlarmsBtn">清空报警日志</button>
+                    </div>
+                </div>
+                <div class="list-body">
+                    <div id="alarmList" class="alarm-list"></div>
+                </div>
+            </div>
+
+            <div class="panel detail-panel">
+                <div class="page-header">
+                    <div class="page-title">报警详情</div>
+                    <div class="badge" id="alarmStatus">未选择</div>
+                </div>
+                <div class="detail-body">
+                    <div class="detail-grid">
+                        <div class="snapshot" id="alarmSnapshot">报警截图占位</div>
+                        <div class="field-grid">
+                            <div class="field"><span>报警时间</span><strong id="detailTime">--</strong></div>
+                            <div class="field"><span>异常类型</span><strong id="detailType">--</strong></div>
+                            <div class="field"><span>异常等级</span><strong id="detailLevel">--</strong></div>
+                            <div class="field"><span>地图位置</span><strong id="detailPosition">--</strong></div>
+                            <div class="field"><span>处理状态</span><strong id="detailStatus">--</strong></div>
+                            <div class="field"><span>传感器摘要</span><strong id="detailSensor">--</strong></div>
+                        </div>
+                        <div class="action-row">
+                            <button data-alarm-action="confirm">确认报警</button>
+                            <button data-alarm-action="ignore">忽略报警</button>
+                            <button data-alarm-action="done">标记已处理</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="page-map-management" class="page map-management-page">
+            <div class="panel map-main-panel">
+                <div class="page-header">
+                    <div class="page-title">地图预览 / 禁区覆盖层</div>
+                    <div class="badge" id="mapManagementBadge">等待 /map</div>
+                </div>
+                <div class="map-canvas" id="mapManagementView">
+                    <canvas id="mapManagementGrid" class="ros-map-layer ros-map-grid"></canvas>
+                    <canvas id="mapManagementOverlay" class="ros-map-layer ros-map-overlay"></canvas>
+                    <div class="map-note" id="mapManagementMessage">等待 /map 数据</div>
+                </div>
+            </div>
+
+            <div class="map-side-stack">
+                <div class="panel summary-panel">
+                    <div class="page-header">
+                        <div class="page-title">地图信息</div>
+                        <div class="badge" id="mapDisplaySource">等待地图</div>
+                    </div>
+                    <div class="summary-body">
+                        <div class="status-grid map-status-list">
+                            <div class="status-card">
+                                <div class="card-label">frame_id</div>
+                                <div class="card-value" id="mapFrameId">--</div>
+                            </div>
+                            <div class="status-card">
+                                <div class="card-label">地图状态</div>
+                                <div class="card-value" id="mapStatusText">等待数据</div>
+                            </div>
+                            <div class="status-card">
+                                <div class="card-label">栅格尺寸</div>
+                                <div class="card-value" id="mapSizeText">--</div>
+                            </div>
+                            <div class="status-card">
+                                <div class="card-label">分辨率</div>
+                                <div class="card-value" id="mapResolutionText">--</div>
+                            </div>
+                            <div class="status-card">
+                                <div class="card-label">地图原点</div>
+                                <div class="card-value" id="mapOriginText">--</div>
+                            </div>
+                            <div class="status-card">
+                                <div class="card-label">更新时间</div>
+                                <div class="card-value" id="mapUpdatedText">--</div>
+                            </div>
+                        </div>
+                        <div class="map-save-form">
+                            <div id="currentMapMatchStatus" class="map-inline-status">等待 /map 数据</div>
+                            <div class="map-save-row">
+                                <input id="mapNameInput" type="text" maxlength="64" placeholder="地图名称（留空自动生成）">
+                                <button id="saveCurrentMapBtn" disabled>保存当前地图</button>
+                            </div>
+                            <div class="map-save-row">
+                                <button id="showLiveMapBtn">查看实时 /map</button>
+                            </div>
+                            <div id="mapActionMessage" class="map-inline-status"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel list-panel">
+                    <div class="page-header">
+                        <div class="page-title">地图列表</div>
+                        <div class="header-actions">
+                            <div class="badge" id="mapAssetCount">0 张地图</div>
+                            <button id="refreshMapsBtn">刷新</button>
+                        </div>
+                    </div>
+                    <div class="list-body">
+                        <div class="map-list" id="mapAssetList"></div>
+                    </div>
+                </div>
+
+                <div class="panel list-panel">
+                    <div class="page-header">
+                        <div class="page-title">禁区管理</div>
+                        <div class="badge" id="zoneCount">0 个禁区</div>
+                    </div>
+                    <div class="list-body" style="padding: 0;">
+                        <div class="zone-editor">
+                            <div class="small-text">当前地图：<strong id="selectedZoneMap">未选择历史地图</strong></div>
+                            <input id="zoneNameInput" type="text" maxlength="64" placeholder="禁区名称" disabled>
+                            <div class="zone-action-row">
+                                <button id="addZoneBtn" disabled>添加禁区</button>
+                                <button id="finishZoneBtn" disabled>完成禁区</button>
+                            </div>
+                            <div class="zone-action-row">
+                                <button id="undoZonePointBtn" disabled>撤销上一点</button>
+                                <button id="cancelZoneEditBtn" disabled>取消编辑</button>
+                                <button id="saveZonesBtn" disabled>保存禁区</button>
+                            </div>
+                            <div id="zoneActionMessage" class="map-inline-status">请先选择一张完整历史地图</div>
+                        </div>
+                        <div class="zone-list" id="zoneList"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="page-patrol-task" class="page patrol-task-page">
+            <div class="panel map-main-panel">
+                <div class="page-header">
+                    <div class="page-title">地图 / 巡检点预览</div>
+                    <div class="badge" id="patrolMapBadge">等待 /map</div>
+                </div>
+                <div class="map-canvas" id="patrolMapView">
+                    <canvas id="patrolMapGrid" class="ros-map-layer ros-map-grid"></canvas>
+                    <canvas id="patrolMapOverlay" class="ros-map-layer ros-map-overlay"></canvas>
+                    <div class="map-note">
+                        <div class="map-note-line" id="patrolMapMessage">等待 /map 数据</div>
+                        <div class="map-note-line">禁区：<strong id="patrolZonesStatus">等待地图匹配</strong></div>
+                        <div class="map-note-line">位姿：<strong id="patrolPoseCoordinates">--</strong></div>
+                        <div class="map-note-line">来源：<strong id="patrolPoseSource">--</strong></div>
+                        <div class="map-note-line">更新时间：<strong id="patrolPoseUpdated">--</strong></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="patrol-side-stack">
+                <div class="panel point-panel">
+                    <div class="page-header">
+                        <div class="page-title">巡检点管理</div>
+                        <div class="badge" id="pointCount">0 个点</div>
+                    </div>
+                    <div class="point-body">
+                        <div class="point-form">
+                            <div class="point-form-grid">
+                                <input id="pointNameInput" type="text" placeholder="巡检点名称">
+                                <select id="pointTypeInput">
+                                    <option value="normal">普通</option>
+                                    <option value="danger">危险</option>
+                                    <option value="sensor">传感器</option>
+                                    <option value="manual">手动</option>
+                                </select>
+                                <input id="pointXInput" type="number" step="0.01" placeholder="x">
+                                <input id="pointYInput" type="number" step="0.01" placeholder="y">
+                                <input id="pointYawInput" type="number" step="0.01" placeholder="yaw">
+                                <input id="pointNoteInput" type="text" placeholder="备注">
+                            </div>
+                            <div class="point-actions">
+                                <button id="mapPointPickBtn">地图点选添加</button>
+                                <button id="addPointBtn">添加点位</button>
+                                <button class="danger" id="clearPointsBtn">清空点位</button>
+                            </div>
+                            <div id="pointActionMessage" class="map-inline-status">等待当前地图与禁区校验</div>
+                        </div>
+                        <div class="point-list" id="pointList"></div>
+                        <div class="action-row" style="margin-top: 12px;">
+                            <button id="sendTaskBtn">发送巡检任务</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel control-panel">
+                    <div class="page-header">
+                        <div class="page-title">巡检控制区</div>
+                        <div class="badge" id="patrolTaskState">未巡检</div>
+                    </div>
+                    <div class="control-grid">
+                        <div class="patrol-status-summary">
+                            <span>任务</span>
+                            <strong id="patrolPreparedTask">未装载</strong>
+                            <span>当前目标</span>
+                            <strong id="patrolCurrentPoint">--</strong>
+                            <span>进度</span>
+                            <strong id="patrolProgress">0 / 0，剩余 0</strong>
+                            <span>失败</span>
+                            <strong><span id="patrolFailedCount">0</span> 个；<span id="patrolFailureReason">--</span></strong>
+                            <span>会话</span>
+                            <strong id="patrolSession">--</strong>
+                            <span>状态说明</span>
+                            <strong id="patrolControlMessage">等待巡检节点状态</strong>
+                            <div class="manual-status-compact">
+                                <span>当前模式：<strong id="manualModeState">自动模式</strong></span>
+                                <span>控制权：<strong id="manualControlOwner">未接管</strong></span>
+                                <span>方向：<strong id="manualControlDirection">停止</strong></span>
+                            </div>
+                        </div>
+                        <button data-control="start">开始巡检</button>
+                        <button data-control="pause">暂停巡检</button>
+                        <button data-control="resume">继续巡检</button>
+                        <button class="danger" data-control="cancel">取消巡检</button>
+                        <button data-control="home">返回起点</button>
+                        <button id="manualModeBtn" disabled>手动模式</button>
+                        <button id="automaticModeBtn" disabled>自动模式</button>
+                        <button class="danger" id="emergencyStopBtn">急停</button>
+                        <button class="danger" id="releaseEmergencyStopBtn" disabled>解除急停</button>
+                        <div class="manual-control-hint">
+                            手动接管后使用 <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>
+                            控制方向，<kbd>空格</kbd>立即停止；失焦或切页自动退出。
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+
+<script>
+const socket = window.io ? io() : null;
+
+const state = {
+    frameCount: 0,
+    lastFpsTime: Date.now(),
+    startTime: Date.now(),
+    alarms: [],
+    selectedAlarmId: null,
+    sensor: {
+        temp: 0,
+        hum: 0,
+        mq2: 0,
+        co: 0,
+        pm25: 0,
+        pm10: 0,
+        hc: 0
+    },
+    points: [],
+    patrol: {
+        state: "idle",
+        session_id: "",
+        current_point: null,
+        completed_point_ids: [],
+        failed_points: [],
+        message: "等待巡检节点状态"
+    },
+    patrolTask: {
+        state: "draft",
+        task_id: "",
+        map_name: null,
+        point_count: 0,
+        prepared_at: "",
+        message: "待发送巡检任务"
+    },
+    patrolSafety: {
+        emergency_stop: false,
+        parameter_confirmed: false,
+        sync_complete: false,
+        message: "正在确认 STM32 急停状态"
+    },
+    patrolControlBusy: false,
+    manualControl: {
+        revision: -1,
+        mode: "automatic",
+        enabled: false,
+        owner_sid: null,
+        direction: "stop",
+        message: "等待手动控制状态"
+    },
+    manualControlBusy: false,
+    manualExitRequestedReason: null,
+    manualPressedKeys: new Set(),
+    manualHeartbeatTimer: null,
+    manualCommandDirection: "stop",
+    map: null,
+    mapRaster: null,
+    mapOccupiedBounds: null,
+    mapReceivedAt: null,
+    managementMap: null,
+    managementMapRaster: null,
+    managementMapOccupiedBounds: null,
+    managementMapReceivedAt: null,
+    selectedMapName: null,
+    mapAssets: [],
+    mapMatch: null,
+    mapMatchTimer: null,
+    mapRequestBusy: false,
+    patrolMapName: null,
+    patrolZones: [],
+    patrolZonesAvailable: false,
+    patrolZonesMessage: "等待当前地图匹配",
+    patrolZonesReasonCode: "map_unmatched",
+    patrolZonesRequestId: 0,
+    patrolPointValidation: [],
+    patrolPointPickMode: false,
+    zones: [],
+    zonesUpdatedAt: null,
+    zonesDirty: false,
+    zoneEditMode: false,
+    draftZonePoints: [],
+    robotPose: {
+        valid: false,
+        source: "tf_unavailable",
+        message: "等待 TF 数据"
+    },
+    robotPoseReceivedAt: null,
+    mapRedrawFrame: null,
+    mapFullRedrawPending: false
+};
+
+const alarmTypeMap = {
+    person: "行人异常",
+    fire: "火灾异常",
+    accident: "事故异常",
+    water: "积水异常",
+    congestion: "车辆拥堵",
+    sensor: "传感器异常",
+    system: "系统报警"
+};
+
+function $(id) {
+    return document.getElementById(id);
+}
+
+function formatTime(date) {
+    return date.toLocaleString("zh-CN", { hour12: false });
+}
+
+function setText(id, value) {
+    const el = $(id);
+    if (el) {
+        el.innerText = value;
+    }
+}
+
+const mapViews = [
+    {
+        kind: "management",
+        gridCanvasId: "mapManagementGrid",
+        overlayCanvasId: "mapManagementOverlay"
+    },
+    {
+        kind: "patrol",
+        gridCanvasId: "patrolMapGrid",
+        overlayCanvasId: "patrolMapOverlay"
+    }
+];
+
+function normalizeMapPayload(data) {
+    if (!data || typeof data !== "object") {
+        return null;
+    }
+
+    const width = Number(data.width);
+    const height = Number(data.height);
+    const resolution = Number(data.resolution);
+    const origin = data.origin || {};
+    const originX = Number(origin.x);
+    const originY = Number(origin.y);
+    const originYaw = Number(origin.yaw);
+
+    if (
+        !Number.isInteger(width) || width <= 0
+        || !Number.isInteger(height) || height <= 0
+        || !Number.isFinite(resolution) || resolution <= 0
+        || !Array.isArray(data.data) || data.data.length < width * height
+        || !Number.isFinite(originX)
+        || !Number.isFinite(originY)
+        || !Number.isFinite(originYaw)
+    ) {
+        return null;
+    }
+
+    return Object.assign({}, data, {
+        width,
+        height,
+        resolution,
+        origin: {
+            x: originX,
+            y: originY,
+            yaw: originYaw
+        }
+    });
+}
+
+function buildMapRaster(map) {
+    const raster = document.createElement("canvas");
+    raster.width = map.width;
+    raster.height = map.height;
+
+    const context = raster.getContext("2d");
+    const image = context.createImageData(map.width, map.height);
+
+    for (let gy = 0; gy < map.height; gy += 1) {
+        const canvasY = map.height - 1 - gy;
+        for (let gx = 0; gx < map.width; gx += 1) {
+            const occupancy = Number(map.data[gy * map.width + gx]);
+            let gray = 214;
+            if (occupancy >= 0) {
+                const clamped = Math.max(0, Math.min(100, occupancy));
+                gray = 255 - Math.round(clamped * 2.55);
+            }
+
+            const pixel = (canvasY * map.width + gx) * 4;
+            image.data[pixel] = gray;
+            image.data[pixel + 1] = gray;
+            image.data[pixel + 2] = gray;
+            image.data[pixel + 3] = 255;
+        }
+    }
+
+    context.putImageData(image, 0, 0);
+    return raster;
+}
+
+function resizeCanvasToDisplaySize(canvas) {
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) {
+        return null;
+    }
+
+    const pixelRatio = window.devicePixelRatio || 1;
+    const width = Math.max(1, Math.round(rect.width * pixelRatio));
+    const height = Math.max(1, Math.round(rect.height * pixelRatio));
+    if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+    }
+
+    const context = canvas.getContext("2d");
+    context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+    return {
+        context,
+        width: rect.width,
+        height: rect.height
+    };
+}
+
+function computeMapOccupiedBounds(map) {
+    let minX = map.width;
+    let minY = map.height;
+    let maxX = 0;
+    let maxY = 0;
+    let hasOccupiedCells = false;
+
+    for (let gy = 0; gy < map.height; gy += 1) {
+        for (let gx = 0; gx < map.width; gx += 1) {
+            if (Number(map.data[gy * map.width + gx]) <= 50) {
+                continue;
+            }
+
+            hasOccupiedCells = true;
+            minX = Math.min(minX, gx);
+            minY = Math.min(minY, gy);
+            maxX = Math.max(maxX, gx + 1);
+            maxY = Math.max(maxY, gy + 1);
+        }
+    }
+
+    return hasOccupiedCells ? { minX, minY, maxX, maxY } : null;
+}
+
+function worldToMapGrid(map, x, y) {
+    const dx = x - map.origin.x;
+    const dy = y - map.origin.y;
+    const cosYaw = Math.cos(map.origin.yaw);
+    const sinYaw = Math.sin(map.origin.yaw);
+    return {
+        x: (cosYaw * dx + sinYaw * dy) / map.resolution,
+        y: (-sinYaw * dx + cosYaw * dy) / map.resolution
+    };
+}
+
+function computeMapViewport(map, occupied, robotPose, fitFullMap = false) {
+    if (fitFullMap) {
+        return {
+            minX: 0,
+            minY: 0,
+            maxX: map.width,
+            maxY: map.height
+        };
+    }
+    if (!occupied) {
+        return {
+            minX: 0,
+            minY: 0,
+            maxX: map.width,
+            maxY: map.height
+        };
+    }
+
+    let { minX, minY, maxX, maxY } = occupied;
+    if (
+        robotPose && robotPose.valid
+        && Number.isFinite(Number(robotPose.x))
+        && Number.isFinite(Number(robotPose.y))
+    ) {
+        const robotGrid = worldToMapGrid(
+            map,
+            Number(robotPose.x),
+            Number(robotPose.y)
+        );
+        minX = Math.min(minX, robotGrid.x);
+        minY = Math.min(minY, robotGrid.y);
+        maxX = Math.max(maxX, robotGrid.x);
+        maxY = Math.max(maxY, robotGrid.y);
+    }
+
+    const contentWidth = Math.max(1, maxX - minX);
+    const contentHeight = Math.max(1, maxY - minY);
+    const paddingX = Math.max(2, contentWidth * 0.15);
+    const paddingY = Math.max(2, contentHeight * 0.15);
+
+    return {
+        minX: Math.max(0, minX - paddingX),
+        minY: Math.max(0, minY - paddingY),
+        maxX: Math.min(map.width, maxX + paddingX),
+        maxY: Math.min(map.height, maxY + paddingY)
+    };
+}
+
+function getCanvasViewport(width, height, mapViewport) {
+    const sourceWidth = Math.max(1, mapViewport.maxX - mapViewport.minX);
+    const sourceHeight = Math.max(1, mapViewport.maxY - mapViewport.minY);
+    const scale = Math.min(width / sourceWidth, height / sourceHeight);
+    const drawWidth = sourceWidth * scale;
+    const drawHeight = sourceHeight * scale;
+    return {
+        ...mapViewport,
+        scale,
+        padX: (width - drawWidth) / 2,
+        padY: (height - drawHeight) / 2,
+        drawWidth,
+        drawHeight
+    };
+}
+
+function worldToCanvas(map, x, y, viewport) {
+    const grid = worldToMapGrid(map, x, y);
+    const gx = grid.x;
+    const gy = grid.y;
+
+    return {
+        x: viewport.padX + (gx - viewport.minX) * viewport.scale,
+        y: viewport.padY + (viewport.maxY - gy) * viewport.scale,
+        inside: gx >= viewport.minX && gx <= viewport.maxX
+            && gy >= viewport.minY && gy <= viewport.maxY
+    };
+}
+
+function canvasToWorld(map, canvasX, canvasY, viewport) {
+    const gx = (canvasX - viewport.padX) / viewport.scale + viewport.minX;
+    const gy = viewport.maxY - (canvasY - viewport.padY) / viewport.scale;
+    const insideDrawArea = canvasX >= viewport.padX
+        && canvasX <= viewport.padX + viewport.drawWidth
+        && canvasY >= viewport.padY
+        && canvasY <= viewport.padY + viewport.drawHeight;
+    const insideMap = insideDrawArea
+        && gx >= 0 && gx < map.width
+        && gy >= 0 && gy < map.height;
+    const localX = gx * map.resolution;
+    const localY = gy * map.resolution;
+    const cosYaw = Math.cos(map.origin.yaw);
+    const sinYaw = Math.sin(map.origin.yaw);
+    return {
+        x: map.origin.x + cosYaw * localX - sinYaw * localY,
+        y: map.origin.y + sinYaw * localX + cosYaw * localY,
+        gx,
+        gy,
+        inside: insideMap
+    };
+}
+
+function getMapViewState(view) {
+    if (view.kind === "management") {
+        return {
+            map: state.managementMap || state.map,
+            raster: state.managementMap ? state.managementMapRaster : state.mapRaster,
+            occupiedBounds: state.managementMap
+                ? state.managementMapOccupiedBounds
+                : state.mapOccupiedBounds,
+            robotPose: null,
+            fitFullMap: true
+        };
+    }
+    return {
+        map: state.map,
+        raster: state.mapRaster,
+        occupiedBounds: state.mapOccupiedBounds,
+        robotPose: state.robotPose,
+        fitFullMap: false
+    };
+}
+
+function drawMapBase(view) {
+    const canvas = $(view.gridCanvasId);
+    const sized = resizeCanvasToDisplaySize(canvas);
+    if (!sized) {
+        return;
+    }
+
+    const { context, width, height } = sized;
+    context.clearRect(0, 0, width, height);
+    const viewState = getMapViewState(view);
+    if (!viewState.map || !viewState.raster) {
+        view.viewport = null;
+        view.renderedMap = null;
+        return;
+    }
+
+    const mapViewport = computeMapViewport(
+        viewState.map,
+        viewState.occupiedBounds,
+        viewState.robotPose,
+        viewState.fitFullMap
+    );
+    const viewport = getCanvasViewport(width, height, mapViewport);
+    view.viewport = viewport;
+    view.renderedMap = viewState.map;
+    context.imageSmoothingEnabled = false;
+    context.drawImage(
+        viewState.raster,
+        viewport.minX,
+        viewState.map.height - viewport.maxY,
+        viewport.maxX - viewport.minX,
+        viewport.maxY - viewport.minY,
+        viewport.padX,
+        viewport.padY,
+        viewport.drawWidth,
+        viewport.drawHeight
+    );
+}
+
+function drawRobotMarker(context, map, viewport) {
+    if (!state.robotPose || !state.robotPose.valid) {
+        return;
+    }
+    const point = worldToCanvas(
+        map,
+        Number(state.robotPose.x),
+        Number(state.robotPose.y),
+        viewport
+    );
+    if (!point.inside) {
+        return;
+    }
+
+    const heading = Number(state.robotPose.yaw) - map.origin.yaw;
+    const arrowLength = 28;
+    const arrowX = point.x + Math.cos(heading) * arrowLength;
+    const arrowY = point.y - Math.sin(heading) * arrowLength;
+
+    context.save();
+    context.strokeStyle = "#43d17b";
+    context.fillStyle = "#101317";
+    context.lineWidth = 3;
+    context.beginPath();
+    context.arc(point.x, point.y, 8, 0, Math.PI * 2);
+    context.fill();
+    context.stroke();
+
+    context.beginPath();
+    context.moveTo(point.x, point.y);
+    context.lineTo(arrowX, arrowY);
+    context.stroke();
+
+    const arrowAngle = Math.atan2(arrowY - point.y, arrowX - point.x);
+    context.fillStyle = "#43d17b";
+    context.beginPath();
+    context.moveTo(arrowX, arrowY);
+    context.lineTo(
+        arrowX - 9 * Math.cos(arrowAngle - Math.PI / 6),
+        arrowY - 9 * Math.sin(arrowAngle - Math.PI / 6)
+    );
+    context.lineTo(
+        arrowX - 9 * Math.cos(arrowAngle + Math.PI / 6),
+        arrowY - 9 * Math.sin(arrowAngle + Math.PI / 6)
+    );
+    context.closePath();
+    context.fill();
+    context.restore();
+}
+
+function drawPatrolPoints(context, map, viewport) {
+    const colors = {
+        normal: "#4dc7c1",
+        danger: "#ff6b57",
+        sensor: "#ffb84d",
+        manual: "#43d17b"
+    };
+    state.points.forEach((patrolPoint, index) => {
+        const point = worldToCanvas(
+            map,
+            Number(patrolPoint.x),
+            Number(patrolPoint.y),
+            viewport
+        );
+        if (!point.inside) {
+            return;
+        }
+        const validation = state.patrolPointValidation[index];
+        const invalid = validation && validation.valid === false;
+        const color = invalid
+            ? "#ff4d4f"
+            : (colors[patrolPoint.type] || colors.manual);
+
+        context.save();
+        context.lineWidth = invalid ? 4 : 3;
+        context.strokeStyle = color;
+        context.fillStyle = "#101317";
+        context.beginPath();
+        context.arc(point.x, point.y, 8, 0, Math.PI * 2);
+        context.fill();
+        context.stroke();
+        if (invalid) {
+            context.beginPath();
+            context.moveTo(point.x - 4, point.y - 4);
+            context.lineTo(point.x + 4, point.y + 4);
+            context.moveTo(point.x + 4, point.y - 4);
+            context.lineTo(point.x - 4, point.y + 4);
+            context.stroke();
+        }
+        context.fillStyle = "#f4f7f8";
+        context.font = "bold 11px sans-serif";
+        context.fillText(String(index + 1), point.x + 11, point.y - 8);
+        context.restore();
+    });
+}
+
+function drawPatrolOverlay(view) {
+    const canvas = $(view.overlayCanvasId);
+    const sized = resizeCanvasToDisplaySize(canvas);
+    if (!sized) {
+        return;
+    }
+
+    const { context, width, height } = sized;
+    context.clearRect(0, 0, width, height);
+    if (view.kind !== "patrol" || !state.map) {
+        return;
+    }
+
+    const viewport = view.viewport || getCanvasViewport(
+        width,
+        height,
+        computeMapViewport(
+            state.map,
+            state.mapOccupiedBounds,
+            state.robotPose,
+            false
+        )
+    );
+    state.patrolZones.forEach(zone => {
+        const enabled = zone.enabled !== false;
+        drawPolygonOverlay(context, state.map, viewport, zone.points, {
+            close: true,
+            fill: enabled ? "rgba(231, 76, 60, 0.24)" : "rgba(145, 154, 162, 0.18)",
+            stroke: enabled ? "#ff6b57" : "#909aa2",
+            vertex: enabled ? "#ff8b78" : "#a9b0b5",
+            dash: enabled ? [] : [7, 5],
+            label: zone.name,
+            labelColor: enabled ? "#ffb3a8" : "#c2c8cc"
+        });
+    });
+    drawPatrolPoints(context, state.map, viewport);
+    drawRobotMarker(context, state.map, viewport);
+}
+
+function drawPolygonOverlay(context, map, viewport, points, options) {
+    if (!Array.isArray(points) || points.length === 0) {
+        return;
+    }
+    const canvasPoints = points.map(point => worldToCanvas(
+        map,
+        Number(point.x),
+        Number(point.y),
+        viewport
+    ));
+    context.save();
+    context.lineWidth = options.lineWidth || 2;
+    context.strokeStyle = options.stroke;
+    context.fillStyle = options.fill;
+    context.setLineDash(options.dash || []);
+    context.beginPath();
+    canvasPoints.forEach((point, index) => {
+        if (index === 0) {
+            context.moveTo(point.x, point.y);
+        } else {
+            context.lineTo(point.x, point.y);
+        }
+    });
+    if (options.close && points.length >= 3) {
+        context.closePath();
+        context.fill();
+    }
+    context.stroke();
+
+    canvasPoints.forEach((point, index) => {
+        context.beginPath();
+        context.fillStyle = options.vertex || options.stroke;
+        context.arc(point.x, point.y, 4, 0, Math.PI * 2);
+        context.fill();
+        if (options.showIndex) {
+            context.fillStyle = "#f4f7f8";
+            context.font = "11px sans-serif";
+            context.fillText(String(index + 1), point.x + 6, point.y - 6);
+        }
+    });
+
+    if (options.label && canvasPoints.length >= 3) {
+        const center = canvasPoints.reduce((result, point) => ({
+            x: result.x + point.x / canvasPoints.length,
+            y: result.y + point.y / canvasPoints.length
+        }), { x: 0, y: 0 });
+        context.font = "bold 12px sans-serif";
+        const labelWidth = context.measureText(options.label).width;
+        context.fillStyle = "rgba(12, 15, 18, 0.82)";
+        context.fillRect(center.x - 5, center.y - 15, labelWidth + 10, 21);
+        context.fillStyle = options.labelColor || "#f4f7f8";
+        context.fillText(options.label, center.x, center.y);
+    }
+    context.restore();
+}
+
+function drawZoneOverlay(view) {
+    const canvas = $(view.overlayCanvasId);
+    const sized = resizeCanvasToDisplaySize(canvas);
+    if (!sized) {
+        return;
+    }
+    const { context } = sized;
+    context.clearRect(0, 0, sized.width, sized.height);
+    const map = view.renderedMap;
+    const viewport = view.viewport;
+    if (!map || !viewport || !state.selectedMapName || !state.managementMap) {
+        return;
+    }
+
+    state.zones.forEach(zone => {
+        const enabled = zone.enabled !== false;
+        drawPolygonOverlay(context, map, viewport, zone.points, {
+            close: true,
+            fill: enabled ? "rgba(231, 76, 60, 0.28)" : "rgba(145, 154, 162, 0.22)",
+            stroke: enabled ? "#ff6b57" : "#909aa2",
+            vertex: enabled ? "#ff8b78" : "#a9b0b5",
+            dash: enabled ? [] : [7, 5],
+            label: zone.name,
+            labelColor: enabled ? "#ffb3a8" : "#c2c8cc"
+        });
+    });
+
+    if (state.zoneEditMode && state.draftZonePoints.length > 0) {
+        drawPolygonOverlay(context, map, viewport, state.draftZonePoints, {
+            close: false,
+            fill: "rgba(255, 184, 77, 0.12)",
+            stroke: "#ffb84d",
+            vertex: "#ffd18a",
+            dash: [6, 4],
+            showIndex: true,
+            lineWidth: 2
+        });
+    }
+}
+
+function scheduleMapRedraw(fullRedraw = true) {
+    state.mapFullRedrawPending = state.mapFullRedrawPending || fullRedraw;
+    if (state.mapRedrawFrame !== null) {
+        return;
+    }
+
+    state.mapRedrawFrame = window.requestAnimationFrame(() => {
+        const redrawBase = state.mapFullRedrawPending;
+        state.mapRedrawFrame = null;
+        state.mapFullRedrawPending = false;
+        mapViews.forEach(view => {
+            if (redrawBase) {
+                drawMapBase(view);
+            }
+            if (view.kind === "management") {
+                drawZoneOverlay(view);
+            } else {
+                drawPatrolOverlay(view);
+            }
+        });
+    });
+}
+
+function formatPayloadTime(timestamp, receivedAt) {
+    const seconds = Number(timestamp);
+    const milliseconds = Number.isFinite(seconds) && seconds > 0
+        ? seconds * 1000
+        : receivedAt;
+    return Number.isFinite(milliseconds)
+        ? formatTime(new Date(milliseconds))
+        : "--";
+}
+
+function updateMapUi() {
+    const displayMap = state.managementMap || state.map;
+    const displayReceivedAt = state.managementMap
+        ? state.managementMapReceivedAt
+        : state.mapReceivedAt;
+    $("saveCurrentMapBtn").disabled = !state.map || state.mapRequestBusy;
+    setText("patrolMapBadge", state.map ? (state.map.frame_id || "map") : "等待 /map");
+
+    if (!displayMap) {
+        setText("mapManagementBadge", "等待地图");
+        setText("mapDisplaySource", "等待地图");
+        setText("mapFrameId", "--");
+        setText("mapStatusText", "等待数据");
+        setText("mapSizeText", "--");
+        setText("mapResolutionText", "--");
+        setText("mapOriginText", "--");
+        setText("mapUpdatedText", "--");
+        setText("mapManagementMessage", "等待 /map 数据或选择历史地图");
+        return;
+    }
+
+    const historical = Boolean(state.managementMap && state.selectedMapName);
+    setText(
+        "mapManagementBadge",
+        historical ? state.selectedMapName : (displayMap.frame_id || "map")
+    );
+    setText("mapDisplaySource", historical ? "历史地图" : "实时 /map");
+    setText("mapFrameId", displayMap.frame_id || "map");
+    setText("mapStatusText", historical ? "历史地图已加载" : "实时地图已加载");
+    setText("mapSizeText", `${displayMap.width} × ${displayMap.height}`);
+    setText("mapResolutionText", `${displayMap.resolution.toFixed(3)} m/格`);
+    setText(
+        "mapOriginText",
+        `x=${displayMap.origin.x.toFixed(3)}, y=${displayMap.origin.y.toFixed(3)}, yaw=${displayMap.origin.yaw.toFixed(3)}`
+    );
+    setText(
+        "mapUpdatedText",
+        formatPayloadTime(displayMap.timestamp, displayReceivedAt)
+    );
+    setText(
+        "mapManagementMessage",
+        historical
+            ? `正在查看历史地图：${state.selectedMapName}`
+            : "实时 /map 预览（只读）"
+    );
+}
+
+function updateRobotPoseUi() {
+    const pose = state.robotPose || {};
+    if (!pose.valid) {
+        setText("patrolPoseCoordinates", "定位不可用");
+        setText("patrolPoseSource", pose.source || "tf_unavailable");
+        setText(
+            "patrolPoseUpdated",
+            formatPayloadTime(pose.timestamp, state.robotPoseReceivedAt)
+        );
+    } else {
+        setText(
+            "patrolPoseCoordinates",
+            `x=${Number(pose.x).toFixed(3)}, y=${Number(pose.y).toFixed(3)}, yaw=${Number(pose.yaw).toFixed(3)}`
+        );
+        setText(
+            "patrolPoseSource",
+            `${pose.source || "tf"} (${pose.base_frame || "--"})`
+        );
+        setText(
+            "patrolPoseUpdated",
+            formatPayloadTime(pose.timestamp, state.robotPoseReceivedAt)
+        );
+    }
+
+    let message = "等待 /map 数据";
+    if (state.map && pose.valid) {
+        message = "地图已加载；机器人定位正常";
+    } else if (state.map) {
+        message = "地图已加载；定位不可用";
+    }
+    setText("patrolMapMessage", message);
+}
+
+function showPage(pageName) {
+    document.querySelectorAll(".page").forEach(page => page.classList.remove("active"));
+    document.querySelectorAll(".menu button").forEach(btn => btn.classList.remove("active"));
+
+    $(`page-${pageName}`).classList.add("active");
+    document.querySelector(`.menu button[data-page="${pageName}"]`).classList.add("active");
+    scheduleMapRedraw(true);
+}
+
+function updateClock() {
+    const now = new Date();
+    setText("clockText", now.toLocaleTimeString("zh-CN", { hour12: false }));
+    setText("videoTime", formatTime(now));
+    updateUptime();
+}
+
+function updateUptime() {
+    const totalSeconds = Math.max(0, Math.floor((Date.now() - state.startTime) / 1000));
+    const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, "0");
+    const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, "0");
+    const seconds = String(totalSeconds % 60).padStart(2, "0");
+    setText("uptimeText", `${hours}:${minutes}:${seconds}`);
+}
+
+function updateSensorCards(data) {
+    state.sensor = Object.assign({}, state.sensor, data);
+    setText("temp", Number(state.sensor.temp || 0).toFixed(1));
+    setText("hum", Number(state.sensor.hum || 0).toFixed(1));
+    setText("mq2", Number(state.sensor.mq2 || 0).toFixed(1));
+    setText("co", Number(state.sensor.co || 0).toFixed(2));
+    setText("pm25", Number(state.sensor.pm25 || 0).toFixed(1));
+    setText("pm10", Number(state.sensor.pm10 || 0).toFixed(1));
+    setText("hc", Number(state.sensor.hc || 0).toFixed(1));
+}
+
+function updateSensorAlert(data) {
+    const level = data && data.level ? data.level : "normal";
+    const alerts = data && Array.isArray(data.alerts) ? data.alerts : [];
+
+    document.querySelectorAll(".sensor-card").forEach(card => {
+        card.classList.remove("warning", "danger");
+    });
+
+    alerts.forEach(alert => {
+        const card = document.querySelector(`.sensor-card[data-key="${alert.key}"], .sensor-card[data-keys~="${alert.key}"]`);
+        if (!card) {
+            return;
+        }
+        if ((alert.msg || "").includes("DANGER")) {
+            card.classList.add("danger");
+        } else {
+            card.classList.add("warning");
+        }
+    });
+
+    if (level === "danger") {
+        setText("sensorLevel", "危险");
+    } else if (level === "warning") {
+        setText("sensorLevel", "预警");
+    } else {
+        setText("sensorLevel", "正常");
+    }
+}
+
+function addLogItem(text, level) {
+    const logList = $("alarmList");
+    if (!logList) {
+        return;
+    }
+
+    const alarm = parseAlarmFromLog(text, level);
+    if (alarm) {
+        addAlarm(alarm);
+    }
+}
+
+function parseAlarmFromLog(text, level) {
+    const raw = String(text || "");
+    const lower = raw.toLowerCase();
+    let type = null;
+
+    if (lower.includes("person")) {
+        type = "person";
+    } else if (lower.includes("fire")) {
+        type = "fire";
+    } else if (lower.includes("accident")) {
+        type = "accident";
+    } else if (lower.includes("water")) {
+        type = "water";
+    } else if (lower.includes("congestion")) {
+        type = "congestion";
+    }
+
+    if (!type) {
+        return null;
+    }
+
+    return {
+        id: Date.now() + "-" + Math.random().toString(16).slice(2),
+        time: formatTime(new Date()),
+        type,
+        level: level === "danger" ? "高" : "中",
+        position: extractPosition(raw),
+        status: "未处理",
+        sensor: sensorSummary(),
+        text: raw
+    };
+}
+
+function extractPosition(text) {
+    const match = String(text).match(/x:?\s*(-?\d+\.?\d*).*y:?\s*(-?\d+\.?\d*)/i);
+    if (!match) {
+        return "位置未知";
+    }
+    return `x=${Number(match[1]).toFixed(2)}, y=${Number(match[2]).toFixed(2)}`;
+}
+
+function sensorSummary() {
+    return `T ${Number(state.sensor.temp || 0).toFixed(1)}℃ / CO ${Number(state.sensor.co || 0).toFixed(2)} / PM2.5 ${Number(state.sensor.pm25 || 0).toFixed(1)}`;
+}
+
+function addAlarm(alarm) {
+    const existingIndex = state.alarms.findIndex(item => item.id === alarm.id);
+    if (existingIndex >= 0) {
+        state.alarms.splice(existingIndex, 1);
+    }
+
+    state.alarms.unshift(alarm);
+    state.selectedAlarmId = alarm.id;
+    setText("latestAlarm", alarmTypeMap[alarm.type] || alarm.type);
+    renderAlarms();
+    renderAlarmDetail();
+}
+
+function clearAlarmState() {
+    state.alarms = [];
+    state.selectedAlarmId = null;
+    setText("latestAlarm", "无");
+    renderAlarms();
+    renderAlarmDetail();
+}
+
+function renderAlarmEvidence(alarm) {
+    const snapshot = $("alarmSnapshot");
+    if (!snapshot) {
+        return;
+    }
+
+    snapshot.classList.remove("has-image");
+    snapshot.innerHTML = "";
+
+    if (!alarm || !alarm.evidence_image) {
+        snapshot.innerText = "暂无现场截图";
+        return;
+    }
+
+    const img = document.createElement("img");
+    img.src = alarm.evidence_image;
+    img.alt = "报警现场截图";
+    img.onerror = () => {
+        snapshot.classList.remove("has-image");
+        snapshot.innerHTML = "";
+        snapshot.innerText = "暂无现场截图";
+    };
+
+    snapshot.classList.add("has-image");
+    snapshot.appendChild(img);
+}
+
+function renderAlarms() {
+    const list = $("alarmList");
+    if (!list) {
+        return;
+    }
+
+    setText("alarmCount", `${state.alarms.length} 条`);
+
+    if (state.alarms.length === 0) {
+        list.innerHTML = '<div class="small-text">暂无报警记录</div>';
+        return;
+    }
+
+    list.innerHTML = state.alarms.map(alarm => {
+        const active = alarm.id === state.selectedAlarmId ? " active" : "";
+        const danger = alarm.level === "高" ? " danger" : "";
+        return `
+            <div class="alarm-item${active}${danger}" data-alarm-id="${alarm.id}">
+                <div class="alarm-top">
+                    <span class="alarm-type">${alarmTypeMap[alarm.type] || alarm.type}</span>
+                    <span>${alarm.level}</span>
+                </div>
+                <div class="alarm-meta">
+                    <div>${alarm.time}</div>
+                    <div>${alarm.position} | ${alarm.status}</div>
+                </div>
+            </div>
+        `;
+    }).join("");
+}
+
+function formatSensorSnapshot(snapshot, fallback) {
+    if (!snapshot || typeof snapshot !== "object") {
+        return fallback || "--";
+    }
+
+    const value = (key, digits) => {
+        const raw = snapshot[key];
+        if (raw === null || raw === undefined || raw === "") {
+            return "--";
+        }
+        const number = Number(raw);
+        return Number.isFinite(number) ? number.toFixed(digits) : "--";
+    };
+
+    return [
+        `温湿度 ${value("temp", 1)}℃ / ${value("hum", 1)}%`,
+        `MQ2 ${value("mq2", 1)} / CO ${value("co", 1)}ppm`,
+        `PM2.5 ${value("pm25", 1)} / PM10 ${value("pm10", 1)}`,
+        `测距状态 ${value("hc", 1)}cm`
+    ].join(" | ");
+}
+
+function renderAlarmDetail() {
+    const alarm = state.alarms.find(item => item.id === state.selectedAlarmId);
+
+    if (!alarm) {
+        setText("alarmStatus", "暂无报警详情");
+        setText("detailTime", "--");
+        setText("detailType", "--");
+        setText("detailLevel", "--");
+        setText("detailPosition", "--");
+        setText("detailStatus", "--");
+        setText("detailSensor", "--");
+        renderAlarmEvidence(null);
+        return;
+    }
+
+    setText("alarmStatus", alarm.status);
+    setText("detailTime", alarm.time);
+    setText("detailType", alarmTypeMap[alarm.type] || alarm.type);
+    setText("detailLevel", alarm.level);
+    setText("detailPosition", alarm.position);
+    setText("detailStatus", alarm.status);
+    setText("detailSensor", formatSensorSnapshot(alarm.sensor_snapshot, alarm.sensor));
+    renderAlarmEvidence(alarm);
+}
+
+async function loadAlarmHistory() {
+    try {
+        const response = await fetch("/api/alarms");
+        if (!response.ok) {
+            return;
+        }
+
+        const data = await response.json();
+        state.alarms = Array.isArray(data.alarms) ? data.alarms : [];
+        state.selectedAlarmId = state.alarms.length > 0 ? state.alarms[0].id : null;
+        if (state.alarms.length > 0) {
+            setText("latestAlarm", alarmTypeMap[state.alarms[0].type] || state.alarms[0].type);
+        } else {
+            setText("latestAlarm", "无");
+        }
+        renderAlarms();
+        renderAlarmDetail();
+    } catch (error) {
+        console.warn("load alarm history failed", error);
+    }
+}
+
+function replaceAlarm(updatedAlarm) {
+    const index = state.alarms.findIndex(item => item.id === updatedAlarm.id);
+    if (index < 0) {
+        return;
+    }
+
+    state.alarms[index] = updatedAlarm;
+    renderAlarms();
+    renderAlarmDetail();
+}
+
+async function updateSelectedAlarmStatus(status) {
+    const alarm = state.alarms.find(item => item.id === state.selectedAlarmId);
+    if (!alarm) {
+        return;
+    }
+
+    const oldStatus = alarm.status;
+    alarm.status = status;
+    renderAlarms();
+    renderAlarmDetail();
+
+    try {
+        const response = await fetch(`/api/alarms/${encodeURIComponent(alarm.id)}/status`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ status })
+        });
+
+        if (!response.ok) {
+            alarm.status = oldStatus;
+            renderAlarms();
+            renderAlarmDetail();
+            return;
+        }
+
+        const data = await response.json();
+        if (data.alarm) {
+            replaceAlarm(data.alarm);
+        }
+    } catch (error) {
+        console.warn("save alarm status failed", error);
+    }
+}
+
+async function clearAlarmHistory() {
+    if (!confirm("确定要清空所有报警日志吗？")) {
+        return;
+    }
+
+    try {
+        const response = await fetch("/api/alarms/clear", {
+            method: "POST"
+        });
+        if (!response.ok) {
+            return;
+        }
+        clearAlarmState();
+    } catch (error) {
+        console.warn("clear alarm history failed", error);
+    }
+}
+
+const pointTypeMap = {
+    normal: "普通",
+    danger: "危险",
+    sensor: "传感器",
+    manual: "手动"
+};
+
+function escapeHtml(value) {
+    return String(value ?? "").replace(/[&<>"']/g, char => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+    }[char]));
+}
+
+function setInlineMessage(id, message, level = "") {
+    const element = $(id);
+    if (!element) {
+        return;
+    }
+    element.className = `map-inline-status${level ? ` ${level}` : ""}`;
+    element.innerText = message || "";
+}
+
+async function readApiResponse(response) {
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(data.message || data.error || `请求失败（${response.status}）`);
+    }
+    return data;
+}
+
+function renderMapAssets() {
+    const list = $("mapAssetList");
+    setText("mapAssetCount", `${state.mapAssets.length} 张地图`);
+    if (!list) {
+        return;
+    }
+    if (state.mapAssets.length === 0) {
+        list.innerHTML = '<div class="small-text">暂无已保存地图</div>';
+        return;
+    }
+
+    list.innerHTML = state.mapAssets.map(asset => {
+        const complete = asset.complete === true;
+        const active = asset.map_name === state.selectedMapName ? " active" : "";
+        const errors = Array.isArray(asset.errors) && asset.errors.length
+            ? `<div class="map-inline-status error">${escapeHtml(asset.errors.join("；"))}</div>`
+            : "";
+        return `
+            <div class="map-list-item${active}" data-map-name="${escapeHtml(asset.map_name)}">
+                <div class="point-top">
+                    <span class="point-name">${escapeHtml(asset.map_name)}</span>
+                    <span class="small-text">${escapeHtml(asset.modified_at || "--")}</span>
+                </div>
+                <div class="map-file-status">
+                    <span class="file-chip ${asset.yaml_exists ? "ok" : ""}">YAML ${asset.yaml_exists ? "✓" : "缺失"}</span>
+                    <span class="file-chip ${asset.pgm_exists ? "ok" : ""}">PGM ${asset.pgm_exists ? "✓" : "缺失"}</span>
+                    <span class="file-chip ${asset.zones_exists ? "ok" : ""}">禁区 ${asset.zones_exists ? "已保存" : "无"}</span>
+                </div>
+                ${errors}
+                <div class="map-list-actions">
+                    <button data-map-action="view" data-map-name="${escapeHtml(asset.map_name)}" ${complete ? "" : "disabled"}>查看</button>
+                    <button data-map-action="zones" data-map-name="${escapeHtml(asset.map_name)}" ${complete ? "" : "disabled"}>编辑禁区</button>
+                    <button class="danger" data-map-action="delete" data-map-name="${escapeHtml(asset.map_name)}">删除</button>
+                </div>
+            </div>
+        `;
+    }).join("");
+}
+
+async function loadMapAssets() {
+    try {
+        const response = await fetch("/api/maps");
+        const data = await readApiResponse(response);
+        state.mapAssets = Array.isArray(data.maps) ? data.maps : [];
+        renderMapAssets();
+    } catch (error) {
+        setInlineMessage("mapActionMessage", error.message || "地图列表加载失败", "error");
+    }
+}
+
+function renderCurrentMapMatch() {
+    const match = state.mapMatch;
+    if (!match || match.reason === "no_current_map_received") {
+        setInlineMessage("currentMapMatchStatus", "等待 /map 数据");
+        return;
+    }
+    if (match.matched) {
+        setInlineMessage(
+            "currentMapMatchStatus",
+            `当前 /map 已匹配到地图：${match.map_name}${match.zones_exists ? "（已有禁区）" : ""}`,
+            "success"
+        );
+        return;
+    }
+    if (match.reason === "ambiguous_match") {
+        const candidates = Array.isArray(match.candidates) ? match.candidates.join("、") : "";
+        setInlineMessage(
+            "currentMapMatchStatus",
+            `当前 /map 匹配到多张地图，请检查地图文件${candidates ? `：${candidates}` : ""}`,
+            "warning"
+        );
+        return;
+    }
+    setInlineMessage(
+        "currentMapMatchStatus",
+        "当前 /map 未匹配到已保存地图",
+        "warning"
+    );
+}
+
+function updatePatrolPointControls() {
+    const contextReady = state.patrolZonesAvailable && Boolean(state.map);
+    const controlsLocked = state.patrolSafety.emergency_stop
+        || isPatrolExecutionActive()
+        || state.patrolControlBusy;
+    $("addPointBtn").disabled = !contextReady || controlsLocked;
+    $("mapPointPickBtn").disabled = !contextReady || controlsLocked;
+    $("clearPointsBtn").disabled = controlsLocked || state.points.length === 0;
+    $("sendTaskBtn").disabled = !contextReady
+        || state.points.length === 0
+        || controlsLocked;
+    $("patrolMapView").classList.toggle(
+        "point-picking",
+        contextReady && state.patrolPointPickMode
+    );
+    $("mapPointPickBtn").innerText = state.patrolPointPickMode
+        ? "退出地图点选"
+        : "地图点选添加";
+}
+
+function renderPatrolZonesStatus() {
+    setText("patrolZonesStatus", state.patrolZonesMessage);
+    const status = $("patrolZonesStatus");
+    if (status) {
+        status.style.color = state.patrolZonesAvailable
+            ? (state.patrolZones.length ? "var(--green)" : "var(--amber)")
+            : "var(--red)";
+    }
+    updatePatrolPointControls();
+}
+
+function applyPatrolZonesState({
+    mapName = null,
+    zones = [],
+    available = false,
+    message,
+    reasonCode = "map_unmatched"
+}) {
+    state.patrolMapName = mapName;
+    state.patrolZones = Array.isArray(zones) ? zones : [];
+    state.patrolZonesAvailable = available;
+    state.patrolZonesMessage = message;
+    state.patrolZonesReasonCode = reasonCode;
+    if (!available) {
+        state.patrolPointPickMode = false;
+    }
+    revalidatePatrolPointsLocally();
+    renderPatrolZonesStatus();
+    setInlineMessage(
+        "pointActionMessage",
+        message,
+        available ? (state.patrolZones.length ? "success" : "warning") : "error"
+    );
+    renderPoints();
+    scheduleMapRedraw(false);
+}
+
+function invalidatePatrolZones(message = "正在匹配当前地图…") {
+    state.patrolZonesRequestId += 1;
+    applyPatrolZonesState({
+        message,
+        reasonCode: "map_unmatched"
+    });
+}
+
+async function loadPatrolZonesForMatch(match, requestId) {
+    if (!match || !match.matched) {
+        const ambiguous = match && match.reason === "ambiguous_match";
+        applyPatrolZonesState({
+            message: ambiguous
+                ? "当前地图匹配到多张历史地图，禁区校验不可用"
+                : "当前地图未匹配到已保存地图，禁区校验不可用",
+            reasonCode: "map_unmatched"
+        });
+        return;
+    }
+
+    const mapName = match.map_name;
+    if (!match.zones_exists) {
+        if (requestId !== state.patrolZonesRequestId) {
+            return;
+        }
+        applyPatrolZonesState({
+            mapName,
+            zones: [],
+            available: true,
+            message: "当前地图暂无禁区",
+            reasonCode: ""
+        });
+        return;
+    }
+
+    try {
+        const response = await fetch(
+            `/api/maps/${encodeURIComponent(mapName)}/zones`
+        );
+        const document = await readApiResponse(response);
+        if (requestId !== state.patrolZonesRequestId) {
+            return;
+        }
+        if (document.map_name && document.map_name !== mapName) {
+            throw new Error("禁区文件与当前地图不一致");
+        }
+        const zones = Array.isArray(document.zones) ? document.zones : [];
+        applyPatrolZonesState({
+            mapName,
+            zones,
+            available: true,
+            message: zones.length
+                ? `已加载 ${zones.length} 个禁区`
+                : "当前地图暂无禁区",
+            reasonCode: ""
+        });
+    } catch (error) {
+        if (requestId !== state.patrolZonesRequestId) {
+            return;
+        }
+        applyPatrolZonesState({
+            mapName,
+            message: `禁区读取失败：${error.message || "未知错误"}`,
+            reasonCode: "zones_unavailable"
+        });
+    }
+}
+
+async function loadCurrentMapMatch() {
+    const requestId = ++state.patrolZonesRequestId;
+    try {
+        const response = await fetch("/api/maps/current_match");
+        const match = await readApiResponse(response);
+        if (requestId !== state.patrolZonesRequestId) {
+            return;
+        }
+        state.mapMatch = match;
+        renderCurrentMapMatch();
+        await loadPatrolZonesForMatch(match, requestId);
+    } catch (error) {
+        if (requestId !== state.patrolZonesRequestId) {
+            return;
+        }
+        setInlineMessage("currentMapMatchStatus", error.message || "地图匹配状态读取失败", "error");
+        applyPatrolZonesState({
+            message: `地图匹配失败：${error.message || "未知错误"}`,
+            reasonCode: "map_unmatched"
+        });
+    }
+}
+
+function scheduleCurrentMapMatch() {
+    if (state.mapMatchTimer !== null) {
+        clearTimeout(state.mapMatchTimer);
+    }
+    state.mapMatchTimer = window.setTimeout(() => {
+        state.mapMatchTimer = null;
+        loadCurrentMapMatch();
+    }, 700);
+}
+
+function confirmDiscardZoneChanges() {
+    return !state.zonesDirty || confirm("当前禁区修改尚未保存，确定放弃吗？");
+}
+
+function clearZoneEditDraft() {
+    state.zoneEditMode = false;
+    state.draftZonePoints = [];
+    $("zoneNameInput").value = "";
+}
+
+function showLiveManagementMap() {
+    if (!confirmDiscardZoneChanges()) {
+        return;
+    }
+    state.managementMap = null;
+    state.managementMapRaster = null;
+    state.managementMapOccupiedBounds = null;
+    state.managementMapReceivedAt = null;
+    state.selectedMapName = null;
+    state.zones = [];
+    state.zonesUpdatedAt = null;
+    state.zonesDirty = false;
+    clearZoneEditDraft();
+    updateMapUi();
+    renderMapAssets();
+    renderZones();
+    scheduleMapRedraw(true);
+}
+
+async function selectMapAsset(mapName, openEditor = false) {
+    if (!mapName || !confirmDiscardZoneChanges()) {
+        return;
+    }
+    state.mapRequestBusy = true;
+    updateMapUi();
+    setInlineMessage("mapActionMessage", `正在加载历史地图：${mapName}`);
+    try {
+        const detailResponse = await fetch(`/api/maps/${encodeURIComponent(mapName)}`);
+        const detail = await readApiResponse(detailResponse);
+        const normalizedMap = normalizeMapPayload(detail.map);
+        if (!normalizedMap) {
+            throw new Error("历史地图数据无效");
+        }
+        const zonesResponse = await fetch(`/api/maps/${encodeURIComponent(mapName)}/zones`);
+        const zonesDocument = await readApiResponse(zonesResponse);
+
+        state.managementMap = normalizedMap;
+        state.managementMapRaster = buildMapRaster(normalizedMap);
+        state.managementMapOccupiedBounds = computeMapOccupiedBounds(normalizedMap);
+        state.managementMapReceivedAt = Date.now();
+        state.selectedMapName = mapName;
+        state.zones = Array.isArray(zonesDocument.zones) ? zonesDocument.zones : [];
+        state.zonesUpdatedAt = zonesDocument.updated_at || null;
+        state.zonesDirty = false;
+        clearZoneEditDraft();
+        updateMapUi();
+        renderMapAssets();
+        renderZones();
+        scheduleMapRedraw(true);
+        setInlineMessage(
+            "mapActionMessage",
+            openEditor ? `已进入 ${mapName} 的禁区管理` : `已加载历史地图：${mapName}`,
+            "success"
+        );
+    } catch (error) {
+        setInlineMessage("mapActionMessage", error.message || "历史地图加载失败", "error");
+    } finally {
+        state.mapRequestBusy = false;
+        updateMapUi();
+    }
+}
+
+async function saveCurrentMap() {
+    if (!state.map || state.mapRequestBusy) {
+        return;
+    }
+    const mapName = $("mapNameInput").value.trim();
+    if (mapName && !/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/.test(mapName)) {
+        setInlineMessage(
+            "mapActionMessage",
+            "地图名称只能包含字母、数字、下划线和短横线",
+            "error"
+        );
+        return;
+    }
+    state.mapRequestBusy = true;
+    updateMapUi();
+    setInlineMessage("mapActionMessage", "正在保存当前地图……");
+    try {
+        const response = await fetch("/api/maps/save_current", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(mapName ? { map_name: mapName } : {})
+        });
+        const data = await readApiResponse(response);
+        const savedName = data.map && data.map.map_name;
+        $("mapNameInput").value = "";
+        await loadMapAssets();
+        await loadCurrentMapMatch();
+        if (savedName) {
+            await selectMapAsset(savedName, false);
+        }
+        setInlineMessage("mapActionMessage", `地图已保存：${savedName || "成功"}`, "success");
+    } catch (error) {
+        setInlineMessage("mapActionMessage", error.message || "地图保存失败", "error");
+    } finally {
+        state.mapRequestBusy = false;
+        updateMapUi();
+    }
+}
+
+async function deleteMapAsset(mapName) {
+    if (!mapName) {
+        return;
+    }
+    if (mapName === state.selectedMapName && !confirmDiscardZoneChanges()) {
+        return;
+    }
+    if (!confirm(`确定删除地图“${mapName}”及其禁区文件吗？此操作不可恢复。`)) {
+        return;
+    }
+    try {
+        const response = await fetch(`/api/maps/${encodeURIComponent(mapName)}`, {
+            method: "DELETE"
+        });
+        await readApiResponse(response);
+        if (mapName === state.selectedMapName) {
+            state.zonesDirty = false;
+            showLiveManagementMap();
+        }
+        await loadMapAssets();
+        await loadCurrentMapMatch();
+        setInlineMessage("mapActionMessage", `地图已删除：${mapName}`, "success");
+    } catch (error) {
+        setInlineMessage("mapActionMessage", error.message || "地图删除失败", "error");
+    }
+}
+
+function zoneArea(points) {
+    if (!Array.isArray(points) || points.length < 3) {
+        return 0;
+    }
+    let total = 0;
+    points.forEach((point, index) => {
+        const nextPoint = points[(index + 1) % points.length];
+        total += Number(point.x) * Number(nextPoint.y);
+        total -= Number(nextPoint.x) * Number(point.y);
+    });
+    return Math.abs(total) / 2;
+}
+
+function updateZoneControls() {
+    const selected = Boolean(state.selectedMapName && state.managementMap);
+    $("addZoneBtn").disabled = !selected || state.zoneEditMode;
+    $("zoneNameInput").disabled = !selected || !state.zoneEditMode;
+    $("finishZoneBtn").disabled = !state.zoneEditMode
+        || state.draftZonePoints.length < 3
+        || !$("zoneNameInput").value.trim();
+    $("undoZonePointBtn").disabled = !state.zoneEditMode || state.draftZonePoints.length === 0;
+    $("cancelZoneEditBtn").disabled = !state.zoneEditMode;
+    $("saveZonesBtn").disabled = !selected || !state.zonesDirty || state.zoneEditMode;
+    $("mapManagementView").classList.toggle("zone-editing", state.zoneEditMode);
+}
+
+function renderZones() {
+    const list = $("zoneList");
+    setText("selectedZoneMap", state.selectedMapName || "未选择历史地图");
+    setText("zoneCount", `${state.zones.length} 个禁区${state.zonesDirty ? " *" : ""}`);
+    updateZoneControls();
+    if (!state.selectedMapName) {
+        list.innerHTML = '<div class="small-text">请选择一张完整历史地图后编辑禁区</div>';
+        setInlineMessage("zoneActionMessage", "请先选择一张完整历史地图");
+        return;
+    }
+    if (state.zones.length === 0) {
+        list.innerHTML = '<div class="small-text">当前地图暂无禁区</div>';
+        if (!state.zoneEditMode) {
+            setInlineMessage("zoneActionMessage", state.zonesDirty ? "有未保存修改" : "可点击“添加禁区”开始绘制");
+        }
+        return;
+    }
+    list.innerHTML = state.zones.map((zone, index) => `
+        <div class="zone-card ${zone.enabled === false ? "disabled-zone" : ""}" data-zone-index="${index}">
+            <div class="point-top">
+                <span class="point-name">${escapeHtml(zone.name)}</span>
+                <span>${zone.enabled === false ? "已禁用" : "已启用"}</span>
+            </div>
+            <div class="point-meta">${Array.isArray(zone.points) ? zone.points.length : 0} 个顶点</div>
+            <div class="zone-card-actions">
+                <button data-zone-action="toggle" data-zone-index="${index}">${zone.enabled === false ? "启用" : "禁用"}</button>
+                <button class="danger" data-zone-action="delete" data-zone-index="${index}">删除</button>
+            </div>
+        </div>
+    `).join("");
+    if (!state.zoneEditMode) {
+        setInlineMessage(
+            "zoneActionMessage",
+            state.zonesDirty ? "禁区有未保存修改" : `禁区已加载${state.zonesUpdatedAt ? `，更新于 ${state.zonesUpdatedAt}` : ""}`,
+            state.zonesDirty ? "warning" : ""
+        );
+    }
+}
+
+function beginZoneEdit() {
+    if (!state.selectedMapName || !state.managementMap) {
+        return;
+    }
+    state.zoneEditMode = true;
+    state.draftZonePoints = [];
+    $("zoneNameInput").value = "";
+    setInlineMessage("zoneActionMessage", "请在地图上依次点击禁区顶点");
+    renderZones();
+    scheduleMapRedraw(false);
+    $("zoneNameInput").focus();
+}
+
+function undoZonePoint() {
+    if (!state.zoneEditMode || state.draftZonePoints.length === 0) {
+        return;
+    }
+    state.draftZonePoints.pop();
+    setInlineMessage("zoneActionMessage", `已添加 ${state.draftZonePoints.length} 个顶点`);
+    updateZoneControls();
+    scheduleMapRedraw(false);
+}
+
+function cancelZoneEdit() {
+    clearZoneEditDraft();
+    renderZones();
+    scheduleMapRedraw(false);
+}
+
+function finishZoneEdit() {
+    const name = $("zoneNameInput").value.trim();
+    const points = state.draftZonePoints.slice();
+    if (!name) {
+        setInlineMessage("zoneActionMessage", "禁区名称不能为空", "error");
+        return;
+    }
+    const distinct = new Set(points.map(point => `${Number(point.x).toFixed(9)},${Number(point.y).toFixed(9)}`));
+    if (points.length < 3 || distinct.size < 3) {
+        setInlineMessage("zoneActionMessage", "禁区至少需要 3 个不同顶点", "error");
+        return;
+    }
+    const minimumArea = Math.max(
+        1e-6,
+        state.managementMap.resolution * state.managementMap.resolution / 2
+    );
+    if (zoneArea(points) < minimumArea) {
+        setInlineMessage("zoneActionMessage", "禁区面积过小", "error");
+        return;
+    }
+    state.zones.push({
+        id: "",
+        name,
+        type: "keepout",
+        enabled: true,
+        points
+    });
+    state.zonesDirty = true;
+    clearZoneEditDraft();
+    renderZones();
+    scheduleMapRedraw(false);
+    setInlineMessage("zoneActionMessage", "禁区已完成，请点击“保存禁区”写入文件", "warning");
+}
+
+async function saveZones() {
+    if (!state.selectedMapName || !state.zonesDirty || state.zoneEditMode) {
+        return;
+    }
+    try {
+        const response = await fetch(
+            `/api/maps/${encodeURIComponent(state.selectedMapName)}/zones`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    map_name: state.selectedMapName,
+                    updated_at: state.zonesUpdatedAt,
+                    zones: state.zones
+                })
+            }
+        );
+        const data = await readApiResponse(response);
+        state.zones = Array.isArray(data.zones) ? data.zones : [];
+        state.zonesUpdatedAt = data.updated_at || null;
+        state.zonesDirty = false;
+        await loadMapAssets();
+        await loadCurrentMapMatch();
+        renderZones();
+        scheduleMapRedraw(false);
+        const keepout = data.keepout;
+        if (keepout && keepout.generated === false) {
+            setInlineMessage(
+                "zoneActionMessage",
+                keepout.warning
+                || "禁区已保存，但导航 mask 生成失败；旧 mask 已保留",
+                "warning"
+            );
+        } else if (keepout && keepout.generated === true) {
+            setInlineMessage(
+                "zoneActionMessage",
+                "禁区已保存，导航避让需重启导航后生效",
+                "success"
+            );
+        } else {
+            setInlineMessage("zoneActionMessage", "禁区已保存", "success");
+        }
+    } catch (error) {
+        setInlineMessage("zoneActionMessage", error.message || "禁区保存失败", "error");
+    }
+}
+
+function handleZoneListAction(action, index) {
+    if (!Number.isInteger(index) || index < 0 || index >= state.zones.length) {
+        return;
+    }
+    const zone = state.zones[index];
+    if (action === "delete") {
+        if (!confirm(`确定删除禁区“${zone.name}”吗？`)) {
+            return;
+        }
+        state.zones.splice(index, 1);
+    } else if (action === "toggle") {
+        zone.enabled = zone.enabled === false;
+    } else {
+        return;
+    }
+    state.zonesDirty = true;
+    renderZones();
+    scheduleMapRedraw(false);
+}
+
+function handleManagementMapClick(event) {
+    if (!state.zoneEditMode || !state.managementMap) {
+        return;
+    }
+    const view = mapViews.find(item => item.kind === "management");
+    if (!view || !view.viewport || view.renderedMap !== state.managementMap) {
+        setInlineMessage("zoneActionMessage", "地图视图尚未准备好", "error");
+        return;
+    }
+    const rect = event.currentTarget.getBoundingClientRect();
+    const point = canvasToWorld(
+        state.managementMap,
+        event.clientX - rect.left,
+        event.clientY - rect.top,
+        view.viewport
+    );
+    if (!point.inside) {
+        setInlineMessage("zoneActionMessage", "点击位置不在地图范围内", "error");
+        return;
+    }
+    state.draftZonePoints.push({ x: point.x, y: point.y });
+    setInlineMessage("zoneActionMessage", `已添加 ${state.draftZonePoints.length} 个顶点`);
+    updateZoneControls();
+    scheduleMapRedraw(false);
+}
+
+function pointNumber(point, key) {
+    const value = Number(point[key]);
+    return Number.isFinite(value) ? value : 0;
+}
+
+function renderMapPoints() {
+    scheduleMapRedraw(false);
+}
+
+const patrolPointReasonMessages = {
+    invalid_coordinate: "坐标或朝向不是有效数字",
+    outside_map: "点位超出当前地图范围",
+    occupied_cell: "点位位于障碍物区域",
+    unknown_cell: "点位位于未知或不确定区域",
+    enabled_keepout: "点位位于已启用禁区内",
+    map_unmatched: "当前地图未匹配到唯一的已保存地图",
+    zones_unavailable: "当前地图禁区数据不可用"
+};
+
+function pointOnSegment(x, y, start, end, tolerance) {
+    const startX = Number(start.x);
+    const startY = Number(start.y);
+    const endX = Number(end.x);
+    const endY = Number(end.y);
+    const deltaX = endX - startX;
+    const deltaY = endY - startY;
+    const lengthSquared = deltaX * deltaX + deltaY * deltaY;
+    if (lengthSquared <= tolerance * tolerance) {
+        return Math.hypot(x - startX, y - startY) <= tolerance;
+    }
+    const projection = (
+        (x - startX) * deltaX + (y - startY) * deltaY
+    ) / lengthSquared;
+    if (projection < 0 || projection > 1) {
+        return false;
+    }
+    const nearestX = startX + projection * deltaX;
+    const nearestY = startY + projection * deltaY;
+    return Math.hypot(x - nearestX, y - nearestY) <= tolerance;
+}
+
+function pointInPolygonIncludingBoundary(x, y, points, tolerance) {
+    if (!Array.isArray(points) || points.length < 3) {
+        return false;
+    }
+    let inside = false;
+    for (let index = 0; index < points.length; index += 1) {
+        const start = points[index];
+        const end = points[(index + 1) % points.length];
+        if (pointOnSegment(x, y, start, end, tolerance)) {
+            return true;
+        }
+        const startY = Number(start.y);
+        const endY = Number(end.y);
+        if ((startY > y) === (endY > y)) {
+            continue;
+        }
+        const intersectionX = Number(start.x)
+            + (y - startY) * (Number(end.x) - Number(start.x))
+            / (endY - startY);
+        if (x < intersectionX) {
+            inside = !inside;
+        }
+    }
+    return inside;
+}
+
+function validatePatrolPointLocally(point, index = 0) {
+    const result = {
+        id: point && point.id ? String(point.id) : "",
+        name: point && (point.name || point.id)
+            ? String(point.name || point.id)
+            : `巡检点 ${index + 1}`,
+        index,
+        valid: false,
+        reason_codes: [],
+        reasons: []
+    };
+    if (!state.map) {
+        result.reason_codes.push("map_unmatched");
+        result.reasons.push("尚未收到 /map 数据");
+        return result;
+    }
+    if (!state.patrolZonesAvailable) {
+        const reasonCode = state.patrolZonesReasonCode || "map_unmatched";
+        result.reason_codes.push(reasonCode);
+        result.reasons.push(
+            state.patrolZonesMessage
+            || patrolPointReasonMessages[reasonCode]
+        );
+        return result;
+    }
+
+    const rawValues = point ? [point.x, point.y, point.yaw] : [];
+    const values = rawValues.map(value => Number(value));
+    if (
+        rawValues.length !== 3
+        || rawValues.some(value => value === "" || value === null || value === undefined)
+        || !values.every(Number.isFinite)
+    ) {
+        result.reason_codes.push("invalid_coordinate");
+        result.reasons.push(patrolPointReasonMessages.invalid_coordinate);
+        return result;
+    }
+
+    const [x, y] = values;
+    const grid = worldToMapGrid(state.map, x, y);
+    if (
+        grid.x < 0 || grid.x >= state.map.width
+        || grid.y < 0 || grid.y >= state.map.height
+    ) {
+        result.reason_codes.push("outside_map");
+        result.reasons.push(patrolPointReasonMessages.outside_map);
+        return result;
+    }
+
+    const cellX = Math.floor(grid.x);
+    const cellY = Math.floor(grid.y);
+    const occupancy = Number(state.map.data[cellY * state.map.width + cellX]);
+    if (Number.isFinite(occupancy) && occupancy >= 65) {
+        result.reason_codes.push("occupied_cell");
+        result.reasons.push(patrolPointReasonMessages.occupied_cell);
+    } else if (!Number.isFinite(occupancy) || occupancy < 0 || occupancy > 25) {
+        result.reason_codes.push("unknown_cell");
+        result.reasons.push(patrolPointReasonMessages.unknown_cell);
+    }
+
+    const tolerance = Math.max(1e-9, state.map.resolution * 1e-6);
+    const enabledZone = state.patrolZones.find(zone =>
+        zone.enabled !== false
+        && pointInPolygonIncludingBoundary(x, y, zone.points, tolerance)
+    );
+    if (enabledZone) {
+        result.reason_codes.push("enabled_keepout");
+        result.reasons.push(
+            `位于已启用禁区“${enabledZone.name || enabledZone.id}”内`
+        );
+    }
+    result.valid = result.reason_codes.length === 0;
+    return result;
+}
+
+function revalidatePatrolPointsLocally() {
+    state.patrolPointValidation = state.points.map((point, index) =>
+        validatePatrolPointLocally(point, index)
+    );
+}
+
+function renderPoints() {
+    const list = $("pointList");
+    revalidatePatrolPointsLocally();
+    setText("pointCount", `${state.points.length} 个点`);
+    renderMapPoints();
+    updatePatrolSummary();
+    updatePatrolPointControls();
+
+    if (state.points.length === 0) {
+        list.innerHTML = '<div class="small-text">暂无巡检点</div>';
+        return;
+    }
+
+    list.innerHTML = state.points.map((point, index) => {
+        const validation = state.patrolPointValidation[index];
+        const invalid = validation && validation.valid === false;
+        const reasons = invalid
+            ? `<div class="point-validation-error">${escapeHtml(validation.reasons.join("；"))}</div>`
+            : "";
+        return `
+        <div class="point-card ${invalid ? "invalid-point" : ""}" data-point-id="${escapeHtml(point.id)}">
+            <div class="point-top">
+                <span class="point-name">${index + 1}. ${escapeHtml(point.name || point.id)}</span>
+                <span>${pointTypeMap[point.type] || point.type || "手动"}</span>
+            </div>
+            <div class="point-meta">
+                <div>坐标: x=${pointNumber(point, "x").toFixed(2)}, y=${pointNumber(point, "y").toFixed(2)}, yaw=${pointNumber(point, "yaw").toFixed(2)}</div>
+                <div>备注: ${escapeHtml(point.note || "无")}</div>
+                <div>创建时间: ${escapeHtml(point.created_at || "--")}</div>
+            </div>
+            ${reasons}
+            <div class="action-row" style="margin-top: 10px;">
+                <button class="danger delete-point-btn" data-point-id="${escapeHtml(point.id)}">删除</button>
+            </div>
+        </div>
+    `;
+    }).join("");
+}
+
+async function loadPatrolPoints() {
+    try {
+        const response = await fetch("/api/patrol_points");
+        const data = await readApiResponse(response);
+        state.points = Array.isArray(data.points) ? data.points : [];
+        renderPoints();
+    } catch (error) {
+        console.warn("load patrol points failed", error);
+        setInlineMessage("pointActionMessage", "巡检点读取失败", "error");
+    }
+}
+
+async function createPatrolPoint() {
+    const payload = {
+        map_name: state.patrolMapName,
+        name: $("pointNameInput").value.trim(),
+        type: $("pointTypeInput").value,
+        x: $("pointXInput").value,
+        y: $("pointYInput").value,
+        yaw: $("pointYawInput").value,
+        note: $("pointNoteInput").value.trim()
+    };
+
+    const localValidation = validatePatrolPointLocally(payload, state.points.length);
+    if (!localValidation.valid) {
+        setInlineMessage(
+            "pointActionMessage",
+            localValidation.reasons.join("；"),
+            "error"
+        );
+        return;
+    }
+
+    try {
+        const response = await fetch("/api/patrol_points", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(payload)
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            const validation = data.validation;
+            const detail = validation && Array.isArray(validation.reasons)
+                ? validation.reasons.join("；")
+                : (data.message || data.error || "巡检点添加失败");
+            throw new Error(detail);
+        }
+        state.points = Array.isArray(data.points) ? data.points : [];
+        if (data.task) {
+            updatePatrolTask(data.task);
+        }
+        $("pointNameInput").value = "";
+        $("pointNoteInput").value = "";
+        renderPoints();
+        setInlineMessage("pointActionMessage", "巡检点已添加", "success");
+    } catch (error) {
+        console.warn("create patrol point failed", error);
+        setInlineMessage(
+            "pointActionMessage",
+            error.message || "巡检点添加失败",
+            "error"
+        );
+    }
+}
+
+function togglePatrolPointPickMode() {
+    if (!state.map || !state.patrolZonesAvailable) {
+        setInlineMessage(
+            "pointActionMessage",
+            state.patrolZonesMessage || "当前地图尚未完成校验",
+            "error"
+        );
+        return;
+    }
+    state.patrolPointPickMode = !state.patrolPointPickMode;
+    updatePatrolPointControls();
+    setInlineMessage(
+        "pointActionMessage",
+        state.patrolPointPickMode
+            ? "请在左侧地图中点击目标位置"
+            : "已退出地图点选"
+    );
+}
+
+function handlePatrolMapClick(event) {
+    if (!state.patrolPointPickMode) {
+        return;
+    }
+    if (event.target.closest(".map-note")) {
+        return;
+    }
+    if (!state.map || !state.patrolZonesAvailable) {
+        state.patrolPointPickMode = false;
+        updatePatrolPointControls();
+        setInlineMessage(
+            "pointActionMessage",
+            state.patrolZonesMessage || "当前地图尚未完成校验",
+            "error"
+        );
+        return;
+    }
+    const view = mapViews.find(item => item.kind === "patrol");
+    if (!view || !view.viewport || view.renderedMap !== state.map) {
+        setInlineMessage("pointActionMessage", "地图视图尚未准备好", "error");
+        return;
+    }
+    const rect = event.currentTarget.getBoundingClientRect();
+    const worldPoint = canvasToWorld(
+        state.map,
+        event.clientX - rect.left,
+        event.clientY - rect.top,
+        view.viewport
+    );
+    if (!worldPoint.inside) {
+        setInlineMessage("pointActionMessage", "点击位置不在地图范围内", "error");
+        return;
+    }
+
+    const yaw = state.robotPose && state.robotPose.valid
+        && Number.isFinite(Number(state.robotPose.yaw))
+        ? Number(state.robotPose.yaw)
+        : 0;
+    $("pointXInput").value = worldPoint.x.toFixed(3);
+    $("pointYInput").value = worldPoint.y.toFixed(3);
+    $("pointYawInput").value = yaw.toFixed(3);
+    state.patrolPointPickMode = false;
+    updatePatrolPointControls();
+
+    const validation = validatePatrolPointLocally({
+        x: worldPoint.x,
+        y: worldPoint.y,
+        yaw
+    });
+    setInlineMessage(
+        "pointActionMessage",
+        validation.valid
+            ? "坐标已填入，请确认后点击“添加点位”"
+            : `坐标已填入，但当前点位不可用：${validation.reasons.join("；")}`,
+        validation.valid ? "success" : "error"
+    );
+}
+
+async function preparePatrolTask() {
+    if (!state.points.length) {
+        setInlineMessage("pointActionMessage", "当前没有巡检点", "error");
+        return;
+    }
+    revalidatePatrolPointsLocally();
+    renderPoints();
+    const invalidPoints = state.patrolPointValidation.filter(
+        validation => !validation.valid
+    );
+    if (invalidPoints.length) {
+        const detail = invalidPoints.map(validation =>
+            `${validation.name}：${validation.reasons.join("、")}`
+        ).join("；");
+        setInlineMessage("pointActionMessage", detail, "error");
+        return;
+    }
+
+    try {
+        state.patrolControlBusy = true;
+        updatePatrolUi();
+        const response = await fetch("/api/patrol/task/prepare", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                map_name: state.patrolMapName
+            })
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            const results = Array.isArray(data.results) ? data.results : [];
+            const detail = results.filter(result => !result.valid).map(result =>
+                `${result.name || `巡检点 ${Number(result.index) + 1}`}：${(result.reasons || []).join("、")}`
+            ).join("；");
+            if (detail) {
+                throw new Error(detail);
+            }
+            throw new Error(data.message || data.error || "巡检点校验失败");
+        }
+        if (data.task) {
+            updatePatrolTask(data.task);
+        }
+        setInlineMessage(
+            "pointActionMessage",
+            data.message || "任务已装载，等待开始巡检",
+            "success"
+        );
+    } catch (error) {
+        setInlineMessage(
+            "pointActionMessage",
+            error.message || "巡检点校验失败",
+            "error"
+        );
+    } finally {
+        state.patrolControlBusy = false;
+        updatePatrolUi();
+    }
+}
+
+async function deletePatrolPoint(pointId) {
+    if (!pointId) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/patrol_points/${encodeURIComponent(pointId)}`, {
+            method: "DELETE"
+        });
+        const data = await readApiResponse(response);
+        state.points = Array.isArray(data.points) ? data.points : [];
+        if (data.task) {
+            updatePatrolTask(data.task);
+        }
+        renderPoints();
+        setInlineMessage("pointActionMessage", "巡检点已删除", "success");
+    } catch (error) {
+        console.warn("delete patrol point failed", error);
+        setInlineMessage("pointActionMessage", "巡检点删除失败", "error");
+    }
+}
+
+async function clearPatrolPoints() {
+    if (!confirm("确定要清空所有巡检点吗？")) {
+        return;
+    }
+
+    try {
+        const response = await fetch("/api/patrol_points/clear", {
+            method: "POST"
+        });
+        const data = await readApiResponse(response);
+        state.points = Array.isArray(data.points) ? data.points : [];
+        if (data.task) {
+            updatePatrolTask(data.task);
+        }
+        renderPoints();
+        setInlineMessage("pointActionMessage", "巡检点已清空", "success");
+    } catch (error) {
+        console.warn("clear patrol points failed", error);
+        setInlineMessage("pointActionMessage", "巡检点清空失败", "error");
+    }
+}
+
+const patrolStateMap = {
+    idle: "未巡检",
+    running: "准备巡检",
+    navigating: "巡检中",
+    pausing: "正在暂停",
+    paused: "已暂停",
+    arrived: "已到达",
+    canceling: "正在取消",
+    canceled: "已取消",
+    returning: "返回起点中",
+    completed: "巡检完成",
+    error: "导航失败"
+};
+
+const patrolTaskStateMap = {
+    draft: "未装载",
+    prepared: "任务已装载",
+    active: "巡检中",
+    finished: "已完成",
+    canceled: "已取消",
+    invalidated: "待重新发送",
+    emergency_stop: "已急停"
+};
+
+const manualDirectionLabels = {
+    stop: "停止",
+    forward: "前进",
+    backward: "后退",
+    left: "左转",
+    right: "右转",
+    forward_left: "前进 + 左转",
+    forward_right: "前进 + 右转",
+    backward_left: "后退 + 左转",
+    backward_right: "后退 + 右转"
+};
+
+const manualKeyCodes = new Set(["KeyW", "KeyA", "KeyS", "KeyD", "Space"]);
+
+function isManualControlOwner() {
+    return Boolean(
+        socket
+        && socket.connected
+        && state.manualControl.enabled
+        && state.manualControl.owner_sid === socket.id
+    );
+}
+
+function clearManualHeartbeat() {
+    if (state.manualHeartbeatTimer !== null) {
+        clearInterval(state.manualHeartbeatTimer);
+        state.manualHeartbeatTimer = null;
+    }
+}
+
+function clearManualInput() {
+    state.manualPressedKeys.clear();
+    state.manualCommandDirection = "stop";
+    clearManualHeartbeat();
+}
+
+function applyManualControlState(payload) {
+    if (!payload || typeof payload !== "object") {
+        return;
+    }
+    const incomingRevision = Number(payload.revision);
+    const currentRevision = Number(state.manualControl.revision);
+    if (
+        Number.isFinite(incomingRevision)
+        && Number.isFinite(currentRevision)
+        && incomingRevision < currentRevision
+    ) {
+        return;
+    }
+    state.manualControl = Object.assign({}, state.manualControl, payload);
+    if (!isManualControlOwner()) {
+        clearManualInput();
+    }
+    updatePatrolUi();
+    if (
+        isManualControlOwner()
+        && state.manualExitRequestedReason
+        && !state.manualControlBusy
+    ) {
+        const reason = state.manualExitRequestedReason;
+        state.manualExitRequestedReason = null;
+        setTimeout(() => exitManualMode(reason), 0);
+    }
+}
+
+function updateManualControlUi() {
+    const enabled = state.manualControl.enabled === true;
+    const selfOwner = isManualControlOwner();
+    const otherOwner = enabled && !selfOwner;
+    const emergencyStop = state.patrolSafety.emergency_stop === true
+        || state.patrolTask.state === "emergency_stop";
+    const patrolConflict = state.patrolTask.state === "active"
+        || isPatrolExecutionActive();
+    const socketReady = Boolean(socket && socket.connected);
+    const safetyReady = state.patrolSafety.sync_complete === true;
+    const busy = state.patrolControlBusy || state.manualControlBusy;
+    const manualButton = $("manualModeBtn");
+    const automaticButton = $("automaticModeBtn");
+
+    setText("manualModeState", enabled ? "手动模式" : "自动模式");
+    setText(
+        "manualControlOwner",
+        selfOwner ? "本页面接管" : (otherOwner ? "其他页面接管" : "未接管")
+    );
+    setText(
+        "manualControlDirection",
+        manualDirectionLabels[state.manualControl.direction] || "停止"
+    );
+
+    manualButton.classList.toggle("mode-active", selfOwner);
+    automaticButton.classList.toggle("mode-active", !enabled);
+    manualButton.disabled = busy || !socketReady || !safetyReady
+        || emergencyStop || patrolConflict || enabled;
+    automaticButton.disabled = busy || !socketReady || !selfOwner;
+
+    if (!socketReady) {
+        manualButton.title = "Socket.IO 未连接";
+    } else if (!safetyReady) {
+        manualButton.title = "正在确认 STM32 急停状态";
+    } else if (emergencyStop) {
+        manualButton.title = "急停已锁定";
+    } else if (patrolConflict) {
+        manualButton.title = "巡检执行或暂停中，请先取消巡检";
+    } else if (otherOwner) {
+        manualButton.title = "手动控制已被其他页面接管";
+    } else {
+        manualButton.title = selfOwner ? "本页面已接管" : "进入手动模式";
+    }
+    automaticButton.title = otherOwner
+        ? "其他页面持有控制权，本页面不能释放"
+        : (selfOwner ? "退出手动模式并发布零速" : "当前已是自动模式");
+}
+
+function finishManualSocketAction(response, fallbackMessage) {
+    state.manualControlBusy = false;
+    if (response && response.state) {
+        applyManualControlState(response.state);
+    } else {
+        updatePatrolUi();
+    }
+    if (response && !response.success) {
+        state.manualControl.message = response.message || fallbackMessage;
+        setText("patrolControlMessage", state.manualControl.message);
+    }
+}
+
+function enterManualMode() {
+    if (!socket || !socket.connected || state.manualControlBusy) {
+        return;
+    }
+    state.manualExitRequestedReason = null;
+    state.manualControlBusy = true;
+    updatePatrolUi();
+    let completed = false;
+    const finish = response => {
+        if (completed) {
+            return;
+        }
+        completed = true;
+        finishManualSocketAction(response, "进入手动模式失败");
+        if (response && response.success) {
+            $("manualModeBtn").blur();
+        }
+    };
+    socket.emit("manual_control_enter", {}, finish);
+    setTimeout(() => finish({
+        success: false,
+        message: "进入手动模式请求超时"
+    }), 1500);
+}
+
+function exitManualMode(reason = "button") {
+    state.manualExitRequestedReason = reason;
+    clearManualInput();
+    if (!socket || !socket.connected || !isManualControlOwner()) {
+        updatePatrolUi();
+        return;
+    }
+
+    socket.emit("manual_control_cmd", { direction: "stop" });
+    state.manualControlBusy = true;
+    updatePatrolUi();
+    let completed = false;
+    const finish = response => {
+        if (completed) {
+            return;
+        }
+        completed = true;
+        finishManualSocketAction(response, "退出手动模式失败");
+        state.manualExitRequestedReason = null;
+    };
+    socket.emit("manual_control_exit", { reason }, finish);
+    setTimeout(() => finish({
+        success: false,
+        message: "退出手动模式请求超时"
+    }), 1500);
+}
+
+function manualKeyboardEnabled() {
+    return isManualControlOwner()
+        && $("page-patrol-task").classList.contains("active")
+        && document.visibilityState === "visible"
+        && document.hasFocus();
+}
+
+function isEditableKeyboardTarget(target) {
+    return target instanceof Element && Boolean(target.closest(
+        'input, textarea, select, button, [contenteditable="true"]'
+    ));
+}
+
+function directionFromPressedKeys() {
+    const forward = state.manualPressedKeys.has("KeyW");
+    const backward = state.manualPressedKeys.has("KeyS");
+    const left = state.manualPressedKeys.has("KeyA");
+    const right = state.manualPressedKeys.has("KeyD");
+    const linear = forward === backward ? "" : (forward ? "forward" : "backward");
+    const angular = left === right ? "" : (left ? "left" : "right");
+    if (linear && angular) {
+        return `${linear}_${angular}`;
+    }
+    return linear || angular || "stop";
+}
+
+function sendManualDirection(direction, withAck = true) {
+    if (!manualKeyboardEnabled()) {
+        clearManualInput();
+        return;
+    }
+    state.manualCommandDirection = direction;
+    if (withAck) {
+        socket.emit("manual_control_cmd", { direction }, response => {
+            if (response && response.state) {
+                applyManualControlState(response.state);
+            }
+            if (response && !response.success) {
+                clearManualInput();
+                state.manualControl.message = response.message || "手动控制命令被拒绝";
+                setText("patrolControlMessage", state.manualControl.message);
+            }
+        });
+    } else {
+        socket.emit("manual_control_cmd", { direction });
+    }
+
+    clearManualHeartbeat();
+    if (direction !== "stop") {
+        state.manualHeartbeatTimer = setInterval(() => {
+            if (!manualKeyboardEnabled()) {
+                clearManualInput();
+                return;
+            }
+            socket.emit("manual_control_cmd", {
+                direction: state.manualCommandDirection
+            });
+        }, 100);
+    }
+}
+
+function handleManualKeyDown(event) {
+    if (!manualKeyCodes.has(event.code) || !manualKeyboardEnabled()) {
+        return;
+    }
+    if (isEditableKeyboardTarget(event.target)) {
+        return;
+    }
+    event.preventDefault();
+    if (event.repeat) {
+        return;
+    }
+    if (event.code === "Space") {
+        clearManualInput();
+        sendManualDirection("stop");
+        return;
+    }
+    state.manualPressedKeys.add(event.code);
+    sendManualDirection(directionFromPressedKeys());
+}
+
+function handleManualKeyUp(event) {
+    if (!manualKeyCodes.has(event.code) || event.code === "Space") {
+        return;
+    }
+    if (!state.manualPressedKeys.has(event.code)) {
+        return;
+    }
+    event.preventDefault();
+    state.manualPressedKeys.delete(event.code);
+    if (manualKeyboardEnabled()) {
+        sendManualDirection(directionFromPressedKeys());
+    } else {
+        clearManualInput();
+    }
+}
+
+function isPatrolExecutionActive() {
+    return [
+        "running", "navigating", "pausing", "paused",
+        "arrived", "canceling", "returning"
+    ].includes(state.patrol.state);
+}
+
+function updatePatrolTask(payload) {
+    if (payload && typeof payload === "object") {
+        state.patrolTask = Object.assign({}, state.patrolTask, payload);
+    }
+    updatePatrolUi();
+}
+
+function updatePatrolSafety(payload) {
+    if (payload && typeof payload === "object") {
+        state.patrolSafety = Object.assign({}, state.patrolSafety, payload);
+    }
+    updatePatrolUi();
+}
+
+async function loadPatrolTask() {
+    try {
+        const response = await fetch("/api/patrol/task");
+        const data = await readApiResponse(response);
+        if (data.task) {
+            updatePatrolTask(data.task);
+        }
+    } catch (error) {
+        state.patrolTask.message = error.message || "任务状态读取失败";
+        updatePatrolUi();
+    }
+}
+
+function updatePatrolSummary(label) {
+    const taskState = state.patrolTask.state || "draft";
+    const showRunData = isPatrolExecutionActive()
+        || ["active", "finished", "emergency_stop"].includes(taskState)
+        || (taskState === "canceled" && state.patrol.state === "canceled");
+    const currentPoint = showRunData ? state.patrol.current_point : null;
+    let currentPointLabel = "--";
+    if (currentPoint && typeof currentPoint === "object") {
+        const pointName = currentPoint.name || currentPoint.id || currentPoint.point_id || "--";
+        const x = Number(currentPoint.x);
+        const y = Number(currentPoint.y);
+        currentPointLabel = Number.isFinite(x) && Number.isFinite(y)
+            ? `${pointName}（x=${x.toFixed(2)}, y=${y.toFixed(2)}）`
+            : pointName;
+    } else if (currentPoint !== null && currentPoint !== undefined && currentPoint !== "") {
+        currentPointLabel = String(currentPoint);
+    }
+    if (state.patrol.state === "returning") {
+        currentPointLabel = "任务起点";
+    }
+
+    const completedPoints = showRunData && Array.isArray(state.patrol.completed_point_ids)
+        ? state.patrol.completed_point_ids.length
+        : 0;
+    const failedPoints = showRunData && Array.isArray(state.patrol.failed_points)
+        ? state.patrol.failed_points.length
+        : 0;
+    const currentTotal = currentPoint && typeof currentPoint === "object"
+        ? Number(currentPoint.total)
+        : NaN;
+    const taskTotal = Number(state.patrolTask.point_count);
+    const totalPoints = Number.isFinite(taskTotal) && taskTotal > 0
+        ? taskTotal
+        : (Number.isFinite(currentTotal) && currentTotal >= 0
+            ? currentTotal
+            : state.points.length);
+    const remainingPoints = Math.max(0, totalPoints - completedPoints);
+    const latestFailure = failedPoints > 0
+        ? state.patrol.failed_points[failedPoints - 1]
+        : null;
+    const failureReason = latestFailure && latestFailure.reason
+        ? latestFailure.reason
+        : (state.patrol.state === "error" ? state.patrol.message : "--");
+    const task = state.patrolTask;
+    const preparedLabel = task.task_id
+        ? `${task.task_id} · ${task.map_name || "--"} · ${Number(task.point_count || 0)} 点`
+        : "未装载";
+
+    setText("patrolTaskState", label || patrolStateMap[state.patrol.state] || state.patrol.state || "未巡检");
+    setText("patrolPreparedTask", preparedLabel);
+    setText("patrolCurrentPoint", currentPointLabel);
+    setText("patrolProgress", `${completedPoints} / ${totalPoints}，剩余 ${remainingPoints}`);
+    setText("patrolSession", state.patrol.session_id || "--");
+    setText("patrolFailedCount", String(failedPoints));
+    setText("patrolFailureReason", failureReason || "--");
+}
+
+function updatePatrolUi(payload) {
+    if (payload && typeof payload === "object") {
+        state.patrol = Object.assign({}, state.patrol, payload);
+    }
+
+    const patrolState = state.patrol.state || "idle";
+    const taskState = state.patrolTask.state || "draft";
+    const emergencyStop = state.patrolSafety.emergency_stop === true
+        || taskState === "emergency_stop";
+    const safetyReady = state.patrolSafety.sync_complete === true;
+    const manualControlEnabled = state.manualControl.enabled === true;
+    let label = patrolTaskStateMap[taskState] || "未装载";
+    if (emergencyStop) {
+        label = "已急停";
+    } else if (["running", "navigating", "pausing", "paused", "arrived", "canceling", "returning"].includes(patrolState)) {
+        label = patrolStateMap[patrolState] || patrolState;
+    } else if (
+        (taskState === "finished" && ["completed", "error"].includes(patrolState))
+        || (taskState === "canceled" && patrolState === "canceled")
+    ) {
+        label = patrolStateMap[patrolState] || patrolState;
+    }
+    const pauseButton = document.querySelector('[data-control="pause"]');
+    const resumeButton = document.querySelector('[data-control="resume"]');
+    const startButton = document.querySelector('[data-control="start"]');
+    const homeButton = document.querySelector('[data-control="home"]');
+    const cancelButton = document.querySelector('[data-control="cancel"]');
+    const busy = state.patrolControlBusy || state.manualControlBusy;
+
+    setText("patrolState", label);
+    setText("patrolBadge", label);
+    updatePatrolSummary(label);
+    const statusMessage = emergencyStop
+        ? (state.patrolSafety.message || "急停已锁定")
+        : (!safetyReady
+            ? (state.patrolSafety.message || "正在确认 STM32 急停状态")
+            : (manualControlEnabled
+                ? (state.manualControl.message || "手动模式已接管")
+                : (isPatrolExecutionActive()
+                    ? state.patrol.message
+                    : (state.patrolTask.message || state.patrol.message))));
+    setText(
+        "patrolControlMessage",
+        statusMessage || "等待巡检节点状态"
+    );
+
+    if (pauseButton) {
+        pauseButton.disabled = busy || emergencyStop
+            || !["running", "navigating"].includes(patrolState);
+    }
+    if (resumeButton) {
+        resumeButton.disabled = busy || emergencyStop || !safetyReady
+            || manualControlEnabled || patrolState !== "paused";
+    }
+    if (startButton) {
+        startButton.disabled = busy || emergencyStop || !safetyReady
+            || manualControlEnabled || taskState !== "prepared"
+            || isPatrolExecutionActive();
+        startButton.title = !safetyReady
+            ? "正在确认 STM32 急停状态"
+            : (manualControlEnabled
+                ? "请先退出手动模式"
+                : (taskState === "prepared" ? "" : "请先发送巡检任务"));
+    }
+    if (homeButton) {
+        homeButton.disabled = busy || emergencyStop || !safetyReady
+            || manualControlEnabled
+            || !state.patrol.session_id
+            || !["running", "navigating", "paused"].includes(patrolState);
+    }
+    if (cancelButton) {
+        cancelButton.disabled = busy || emergencyStop || !(
+            taskState === "prepared"
+            || ["running", "navigating", "paused", "returning"].includes(patrolState)
+        );
+    }
+    $("emergencyStopBtn").disabled = state.patrolControlBusy || emergencyStop;
+    $("releaseEmergencyStopBtn").disabled = state.patrolControlBusy || !emergencyStop;
+    updatePatrolPointControls();
+    updateManualControlUi();
+}
+
+async function callPatrolControl(command) {
+    if (state.patrolControlBusy) {
+        return;
+    }
+
+    const apiCommand = command === "home" ? "return_home" : command;
+    const endpoint = command === "cancel"
+        && state.patrolTask.state === "prepared"
+        ? "/api/patrol/task/discard"
+        : `/api/patrol/control/${apiCommand}`;
+
+    state.patrolControlBusy = true;
+    state.patrol.message = "正在发送巡检命令…";
+    updatePatrolUi();
+
+    try {
+        const response = await fetch(endpoint, {
+            method: "POST"
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            if (data.task) {
+                updatePatrolTask(data.task);
+            }
+            throw new Error(data.message || data.error || "巡检命令失败");
+        }
+        if (data.task) {
+            updatePatrolTask(data.task);
+        }
+        state.patrol.message =
+            data.message || "巡检命令已接受，等待状态更新";
+    } catch (error) {
+        state.patrol.message = error.message || "巡检命令失败";
+    } finally {
+        state.patrolControlBusy = false;
+        updatePatrolUi();
+    }
+}
+
+function emergencyStepMessage(data) {
+    if (!data || !data.errors || typeof data.errors !== "object") {
+        return "";
+    }
+    return Object.values(data.errors).filter(Boolean).join("；");
+}
+
+async function engageEmergencyStop() {
+    if (state.patrolControlBusy || state.patrolSafety.emergency_stop) {
+        return;
+    }
+    clearManualInput();
+    state.patrolControlBusy = true;
+    updatePatrolUi();
+    try {
+        const response = await fetch("/api/patrol/emergency_stop", {
+            method: "POST"
+        });
+        const data = await response.json().catch(() => ({}));
+        if (data.task) {
+            updatePatrolTask(data.task);
+        }
+        if (data.safety) {
+            updatePatrolSafety(data.safety);
+        }
+        if (!response.ok || !data.success) {
+            throw new Error(
+                emergencyStepMessage(data)
+                || data.message
+                || "急停未完全确认"
+            );
+        }
+        state.patrol.message = data.message || "已急停";
+    } catch (error) {
+        state.patrolSafety.emergency_stop = true;
+        state.patrolSafety.message = error.message || "急停未完全确认";
+    } finally {
+        state.patrolControlBusy = false;
+        updatePatrolUi();
+    }
+}
+
+async function releaseEmergencyStop() {
+    if (state.patrolControlBusy || !state.patrolSafety.emergency_stop) {
+        return;
+    }
+    if (!confirm("确认解除急停吗？解除后车辆仍保持停止，且不会自动恢复巡检。")) {
+        return;
+    }
+    state.patrolControlBusy = true;
+    updatePatrolUi();
+    try {
+        const response = await fetch("/api/patrol/emergency_stop/release", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ confirm: "解除急停" })
+        });
+        const data = await response.json().catch(() => ({}));
+        if (data.task) {
+            updatePatrolTask(data.task);
+        }
+        if (data.safety) {
+            updatePatrolSafety(data.safety);
+        }
+        if (!response.ok || !data.success) {
+            throw new Error(
+                emergencyStepMessage(data)
+                || data.message
+                || "解除急停失败"
+            );
+        }
+        state.patrol.message = data.message || "急停已解除";
+    } catch (error) {
+        state.patrolSafety.emergency_stop = true;
+        state.patrolSafety.message = error.message || "解除急停失败";
+    } finally {
+        state.patrolControlBusy = false;
+        updatePatrolUi();
+    }
+}
+
+document.querySelectorAll(".menu button").forEach(button => {
+    button.addEventListener("click", () => {
+        if (
+            button.dataset.page !== "map-management"
+            && $("page-map-management").classList.contains("active")
+            && !confirmDiscardZoneChanges()
+        ) {
+            return;
+        }
+        if (
+            button.dataset.page !== "patrol-task"
+            && $("page-patrol-task").classList.contains("active")
+        ) {
+            exitManualMode("page_change");
+        }
+        showPage(button.dataset.page);
+    });
+});
+
+document.querySelectorAll("[data-control]").forEach(button => {
+    button.addEventListener("click", () => {
+        if (!button.disabled) {
+            callPatrolControl(button.dataset.control);
+        }
+    });
+});
+
+document.querySelectorAll("[data-alarm-action]").forEach(button => {
+    button.addEventListener("click", () => {
+        const action = button.dataset.alarmAction;
+        if (action === "confirm") {
+            updateSelectedAlarmStatus("已确认");
+        } else if (action === "ignore") {
+            updateSelectedAlarmStatus("已忽略");
+        } else {
+            updateSelectedAlarmStatus("已处理");
+        }
+    });
+});
+
+$("clearAlarmsBtn").addEventListener("click", clearAlarmHistory);
+
+$("alarmList").addEventListener("click", event => {
+    const item = event.target.closest(".alarm-item");
+    if (!item) {
+        return;
+    }
+    state.selectedAlarmId = item.dataset.alarmId;
+    renderAlarms();
+    renderAlarmDetail();
+});
+
+$("addPointBtn").addEventListener("click", createPatrolPoint);
+$("clearPointsBtn").addEventListener("click", clearPatrolPoints);
+$("mapPointPickBtn").addEventListener("click", togglePatrolPointPickMode);
+$("patrolMapView").addEventListener("click", handlePatrolMapClick);
+
+$("pointList").addEventListener("click", event => {
+    const button = event.target.closest(".delete-point-btn");
+    if (!button) {
+        return;
+    }
+    deletePatrolPoint(button.dataset.pointId);
+});
+
+$("sendTaskBtn").addEventListener("click", preparePatrolTask);
+$("manualModeBtn").addEventListener("click", enterManualMode);
+$("automaticModeBtn").addEventListener("click", () => exitManualMode("button"));
+$("emergencyStopBtn").addEventListener("click", engageEmergencyStop);
+$("releaseEmergencyStopBtn").addEventListener("click", releaseEmergencyStop);
+
+$("saveCurrentMapBtn").addEventListener("click", saveCurrentMap);
+$("showLiveMapBtn").addEventListener("click", showLiveManagementMap);
+$("refreshMapsBtn").addEventListener("click", async () => {
+    await loadMapAssets();
+    await loadCurrentMapMatch();
+});
+
+$("mapAssetList").addEventListener("click", event => {
+    const button = event.target.closest("[data-map-action]");
+    if (!button || button.disabled) {
+        return;
+    }
+    const mapName = button.dataset.mapName;
+    if (button.dataset.mapAction === "delete") {
+        deleteMapAsset(mapName);
+    } else {
+        selectMapAsset(mapName, button.dataset.mapAction === "zones");
+    }
+});
+
+$("addZoneBtn").addEventListener("click", beginZoneEdit);
+$("finishZoneBtn").addEventListener("click", finishZoneEdit);
+$("undoZonePointBtn").addEventListener("click", undoZonePoint);
+$("cancelZoneEditBtn").addEventListener("click", cancelZoneEdit);
+$("saveZonesBtn").addEventListener("click", saveZones);
+$("zoneNameInput").addEventListener("input", updateZoneControls);
+$("mapManagementOverlay").addEventListener("click", handleManagementMapClick);
+$("zoneList").addEventListener("click", event => {
+    const button = event.target.closest("[data-zone-action]");
+    if (!button || state.zoneEditMode) {
+        return;
+    }
+    handleZoneListAction(
+        button.dataset.zoneAction,
+        Number.parseInt(button.dataset.zoneIndex, 10)
+    );
+});
+
+window.addEventListener("beforeunload", event => {
+    exitManualMode("unload");
+    if (!state.zonesDirty) {
+        return;
+    }
+    event.preventDefault();
+    event.returnValue = "";
+});
+
+document.addEventListener("keydown", handleManualKeyDown);
+document.addEventListener("keyup", handleManualKeyUp);
+window.addEventListener("blur", () => exitManualMode("blur"));
+window.addEventListener("pagehide", () => exitManualMode("unload"));
+document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") {
+        exitManualMode("hidden");
+    }
+});
+
+if (socket) {
+    socket.on("connect", () => {
+        $("socketDot").className = "dot online";
+        setText("socketState", "已连接");
+        setText("bridgeState", "在线");
+        state.manualControlBusy = false;
+        updatePatrolUi();
+    });
+
+    socket.on("disconnect", () => {
+        $("socketDot").className = "dot offline";
+        setText("socketState", "已断开");
+        setText("bridgeState", "离线");
+        clearManualInput();
+        state.manualControlBusy = false;
+        state.manualExitRequestedReason = null;
+        state.manualControl = Object.assign({}, state.manualControl, {
+            revision: -1,
+            mode: "automatic",
+            enabled: false,
+            owner_sid: null,
+            direction: "stop",
+            message: "连接已断开，手动控制已释放"
+        });
+        updatePatrolUi();
+    });
+
+    socket.on("camera", data => {
+        $("cam").src = "data:image/jpeg;base64," + data;
+        $("emptyVideo").style.display = "none";
+        state.frameCount += 1;
+    });
+
+    socket.on("map", data => {
+        const map = normalizeMapPayload(data);
+        if (!map) {
+            console.warn("invalid map payload ignored");
+            setText("mapStatusText", "地图数据无效");
+            return;
+        }
+
+        state.map = map;
+        state.mapRaster = buildMapRaster(map);
+        state.mapOccupiedBounds = computeMapOccupiedBounds(map);
+        state.mapReceivedAt = Date.now();
+        invalidatePatrolZones("正在匹配当前地图…");
+        updateMapUi();
+        updateRobotPoseUi();
+        scheduleMapRedraw(true);
+        scheduleCurrentMapMatch();
+    });
+
+    socket.on("robot_pose", data => {
+        const payload = data && typeof data === "object" ? data : {};
+        const valid = payload.valid === true
+            && Number.isFinite(Number(payload.x))
+            && Number.isFinite(Number(payload.y))
+            && Number.isFinite(Number(payload.yaw));
+        state.robotPose = Object.assign({}, payload, { valid });
+        state.robotPoseReceivedAt = Date.now();
+        updateRobotPoseUi();
+        scheduleMapRedraw(true);
+    });
+
+    socket.on("sensor", data => {
+        updateSensorCards(data || {});
+    });
+
+    socket.on("sensor_alert", data => {
+        updateSensorAlert(data || {});
+    });
+
+    socket.on("log", data => {
+        const payload = typeof data === "string" ? { text: data, level: "normal" } : data;
+        if (!payload.has_alarm_event) {
+            addLogItem(payload.text, payload.level);
+        }
+    });
+
+    socket.on("alarm_event", data => {
+        addAlarm(Object.assign({
+            id: Date.now() + "-" + Math.random().toString(16).slice(2),
+            time: formatTime(new Date()),
+            level: "中",
+            position: "位置未知",
+            status: "未处理",
+            sensor: sensorSummary()
+        }, data || {}));
+    });
+
+    socket.on("alarm_updated", data => {
+        if (data && data.id) {
+            replaceAlarm(data);
+        }
+    });
+
+    socket.on("alarms_cleared", () => {
+        clearAlarmState();
+    });
+
+    socket.on("patrol_status", data => {
+        updatePatrolUi(data || {});
+    });
+
+    socket.on("patrol_task_state", data => {
+        updatePatrolTask(data || {});
+    });
+
+    socket.on("patrol_safety_state", data => {
+        updatePatrolSafety(data || {});
+    });
+
+    socket.on("manual_control_state", data => {
+        applyManualControlState(data || {});
+    });
+
+    socket.on("robot_status", data => {
+        const status = data || {};
+        if (status.patrol && typeof status.patrol === "object") {
+            updatePatrolUi(status.patrol);
+        } else if (status.patrol_status) {
+            setText("patrolState", status.patrol_status);
+            setText("patrolBadge", status.patrol_status);
+        }
+        if (status.sensor_level === "danger") {
+            setText("sensorLevel", "危险");
+        } else if (status.sensor_level === "warning") {
+            setText("sensorLevel", "预警");
+        }
+    });
+} else {
+    $("socketDot").className = "dot offline";
+    setText("socketState", "脚本未加载");
+    setText("bridgeState", "离线");
+}
+
+setInterval(() => {
+    const now = Date.now();
+    const elapsed = (now - state.lastFpsTime) / 1000;
+    const fps = elapsed > 0 ? state.frameCount / elapsed : 0;
+    setText("fpsBox", `FPS: ${fps.toFixed(1)}`);
+    state.frameCount = 0;
+    state.lastFpsTime = now;
+}, 1000);
+
+setInterval(updateClock, 1000);
+
+window.addEventListener("resize", () => scheduleMapRedraw(true));
+
+updateClock();
+updateSensorCards(state.sensor);
+updateMapUi();
+updateRobotPoseUi();
+renderAlarms();
+renderAlarmDetail();
+renderPoints();
+renderMapAssets();
+renderZones();
+renderPatrolZonesStatus();
+updatePatrolUi(state.patrol);
+loadPatrolPoints();
+loadPatrolTask();
+loadAlarmHistory();
+loadMapAssets();
+loadCurrentMapMatch();
+scheduleMapRedraw(true);
+</script>
+</body>
+</html>

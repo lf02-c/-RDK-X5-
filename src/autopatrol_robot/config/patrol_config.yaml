@@ -1,0 +1,9 @@
+patrol_node:
+  ros__parameters:
+    use_sim_time: false
+    patrol_points_file: /home/sunrise/LD/data/patrol_points.json
+    map_frame: map
+    amcl_pose_topic: /amcl_pose
+    navigate_action_name: /navigate_to_pose
+    pose_max_age_sec: 2.0
+    enable_navigation: true
